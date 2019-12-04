@@ -13,9 +13,14 @@
 #    include <wx/wx.h>
 #endif
 
+#include "MainDrawPane.hpp"
+
 //! The class for the main window.
 class MainFrame : public wxFrame
 {
+private:
+    MainDrawPane *m_drawPane;
+
 public:
     MainFrame(const char* title);
 
@@ -23,5 +28,5 @@ private:
     void OnExit(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
 
-    wxDECLARE_EVENT_TABLE();
+    DECLARE_EVENT_TABLE()
 };

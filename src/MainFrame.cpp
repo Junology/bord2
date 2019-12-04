@@ -6,6 +6,8 @@
  * \date Descember 3, 2019: created
  */
 
+#include <wx/sizer.h>
+
 #include "config.hpp"
 #include "MainFrame.hpp"
 
@@ -16,8 +18,10 @@ wxEND_EVENT_TABLE()
 
 //! Constructor.
 MainFrame::MainFrame(const char* title)
-  : wxFrame(nullptr, -1, title, wxDefaultPosition, wxSize(800,600))
+  : wxFrame(nullptr, -1, title, wxDefaultPosition, wxSize(800,600)),
+    m_drawPane(nullptr)
 {
+    // Setup Manus
     wxMenu *menuFile = new wxMenu;
     menuFile->Append(wxID_EXIT);
 
@@ -30,8 +34,18 @@ MainFrame::MainFrame(const char* title)
 
     wxFrame::SetMenuBar(menuBar);
 
+    // Setup StatusBar
     wxFrame::CreateStatusBar();
     SetStatusText("Hello, wxWidgets!");
+
+    // Setup the body of the frame
+    wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
+
+    m_drawPane = new MainDrawPane(this);
+    sizer->Add(m_drawPane, 1, wxEXPAND);
+
+    wxFrame::SetSizer(sizer);
+    wxFrame::SetAutoLayout(true);
 }
 
 void MainFrame::OnExit(wxCommandEvent& event)
