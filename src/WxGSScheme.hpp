@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <utility>
 #include <memory>
 
 #include <wx/wxprec.h>
@@ -31,6 +32,19 @@ public:
     void clear();
 
     //* Overriding methods.
+    //** Scheme data query
+    std::pair<double,double> getCenter() override {
+        auto sz = getSize();
+        return {sz.first/2.0, sz.second/2.0};
+    }
+    std::pair<double,double> getSize() override {
+        std::pair<double,double> sz(0.0, 0.0);
+        if(mp_gc) {
+            mp_gc->GetSize(&sz.first, &sz.second);
+        }
+        return sz;
+    }
+
     //** Pens and Brushes
     void setPen(double wid, Color col = Black, StrokePattern pat = Solid) override;
     void setBrush(Color col) override;

@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <utility>
+
 //! Interface class providing path-based rendering.
 class PathScheme {
 public:
@@ -41,6 +43,10 @@ public:
 
     PathScheme() = default;
     virtual ~PathScheme() = default;
+
+    //* Scheme data query
+    virtual std::pair<double,double> getCenter() = 0;
+    virtual std::pair<double,double> getSize() = 0;
 
     //* Pens and Brushes
     virtual void setPen(double wid, Color col = Black, StrokePattern pat = Solid) = 0;
@@ -76,13 +82,4 @@ public:
         lineTo(rx, ty);
         closePath();
     }
-};
-
-//! The base class for objects which draw themselves using PathScheme.
-class PathFigure {
-public:
-    PathFigure() = default;
-    virtual ~PathFigure() = default;
-
-    virtual void draw(PathScheme*) = 0;
 };

@@ -88,6 +88,8 @@ wxColour getWxColor(const WxGSScheme::Color &col)
 WxGSScheme::WxGSScheme(const wxWindowDC &dc)
     : mp_gc(wxGraphicsContext::Create(dc)), mp_path()
 {
+    mp_gc->SetBrush(*wxWHITE_BRUSH);
+    mp_gc->SetPen(*wxBLACK_PEN);
     WxGSScheme::clear();
 }
 

@@ -13,8 +13,17 @@
 #    include <wx/wx.h>
 #endif
 
+#include <memory>
+
+#include "WxGSScheme.hpp"
+#include "PathFigure.hpp"
+
 class MainDrawPane : public wxPanel
 {
+private:
+    std::unique_ptr<PathFigure3D> mp_fig3d;
+    double m_elev, m_azim;
+
 public:
     typedef enum _Error {
         FailedCreatingGC
@@ -28,6 +37,7 @@ public:
 
 protected:
     void OnPaint(wxPaintEvent &event);
+    void OnKeyDown(wxKeyEvent &event);
     void render(wxWindowDC &&dc);
 
     DECLARE_EVENT_TABLE()
