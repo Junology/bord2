@@ -16,7 +16,7 @@
 #include <memory>
 
 #include "WxGSScheme.hpp"
-#include "PathFigure.hpp"
+#include "figures/figures.hpp"
 
 class MainDrawPane : public wxPanel
 {

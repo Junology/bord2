@@ -8,4 +8,5 @@
 
 #pragma once
 
+#include "PathFigure3D.hpp"
 #include "QBezierLine3D.hpp"

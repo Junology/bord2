@@ -6,7 +6,6 @@ add_executable(
   MainFrame.cpp
   MainDrawPane.cpp
   WxGSScheme.cpp
-  figures/QBezierLine3D.cpp
 )
 
 target_link_libraries(

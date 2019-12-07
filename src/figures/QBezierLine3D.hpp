@@ -11,29 +11,38 @@
 #include <array>
 #include <Eigen/Dense>
 
-#include "../PathFigure.hpp"
+#include "PathFigure3D.hpp"
 
 class QBezierLine3D : public PathFigure3D
 {
 protected:
     //! Three control points
-    Eigen::Vector3d m_pts[3];
-    //! View Origin
-    Eigen::Vector3d m_focus;
-    //! Projection matrix
-    Eigen::Matrix<double,2,3> m_mat_proj;
+    Eigen::Vector3d m_init, m_ctrl, m_term;
 
 public:
     using vec3d_type = typename std::array<double, 3>;
-    QBezierLine3D(vec3d_type const &init, vec3d_type const &ctrl, vec3d_type const &term);
+    QBezierLine3D(vec3d_type const &init, vec3d_type const &ctrl, vec3d_type const &term)
+        : PathFigure3D(),
+          m_init(init[0], init[1], init[2]),
+          m_ctrl(ctrl[0], ctrl[1], ctrl[2]),
+          m_term(term[0], term[1], term[2])
+    {}
+
     virtual ~QBezierLine3D() = default;
 
     //! Methods inherited from PathFigure
-    void draw(PathScheme&) override;
+    void draw(PathScheme &scheme) const override {
+        auto orig = scheme.getCenter();
+        Eigen::Vector2d orig2d(orig[0], orig[1]);
 
-    //! Methods inherited from PathFigure3D
-    void setAngles(double elevation, double azimuth) override;
+        auto mat_proj = PathFigure3D::getProjector();
+        auto focus = PathFigure3D::getFocus();
+        Eigen::Vector2d init2d = mat_proj * (m_init - focus) + orig2d;
+        Eigen::Vector2d ctrl2d = mat_proj * (m_ctrl - focus) + orig2d;
+        Eigen::Vector2d term2d = mat_proj * (m_term - focus) + orig2d;
 
-    //! The method to set the center of the view.
-    void setFocus(double x, double y, double z) override;
+        scheme.moveTo(init2d(0), init2d(1));
+        scheme.qbezierTo(ctrl2d(0), ctrl2d(1), term2d(0), term2d(1));
+        scheme.stroke();
+    }
 };

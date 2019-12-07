@@ -33,14 +33,10 @@ public:
 
     //* Overriding methods.
     //** Scheme data query
-    std::pair<double,double> getCenter() override {
-        auto sz = getSize();
-        return {sz.first/2.0, sz.second/2.0};
-    }
-    std::pair<double,double> getSize() override {
-        std::pair<double,double> sz(0.0, 0.0);
+    PathScheme::BBoxT getBBox() const override {
+        PathScheme::BBoxT sz{0.0, 0.0, 0.0, 0.0};
         if(mp_gc) {
-            mp_gc->GetSize(&sz.first, &sz.second);
+            mp_gc->GetSize(&(sz[2]), &(sz[3]));
         }
         return sz;
     }
