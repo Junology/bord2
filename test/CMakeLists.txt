@@ -1,18 +1,26 @@
 ## Set test project name
 set(PROJECT_NAME_TEST ${PROJECT_NAME}-test)
 
-## Test compile flags
-set(CMAKE_CXX_FLAGS "-O0 -g ${CMAKE_CXX_FLAGS}")
+include_directories(${CMAKE_SOURCE_DIR}/src)
 
-## Build tests
-#add_executable(
-#  ${PROJECT_NAME_TEST}
-#)
+find_package(GTest)
 
-#target_link_libraries(
-#  ${PROJECT_NAME_TEST}
-#)
+if(GTEST_FOUND)
+  enable_testing()
+  include_directories(${GTEST_INCLUDE_DIRS})
 
-## Execute Test
-#add_test(${PROJECT_NAME_TEST} AllTests COMMAND ${PROJECT_NAME_TEST})
+  add_executable(${PROJECT_NAME_TEST}
+	test_math.cpp)
 
+  target_compile_options(${PROJECT_NAME_TEST} PUBLIC -O0 -g -Wall)
+
+  target_link_libraries(${PROJECT_NAME_TEST}
+	Threads::Threads
+	Eigen3::Eigen
+	GTest::GTest
+	GTest::Main)
+
+  add_test(${PROJECT_NAME_TEST} AllTests COMMAND ${PROJECT_NAME_TEST})
+else(GTEST_FOUND)
+  message("Google Test not found; tests are not enabled.")
+endif(GTEST_FOUND)

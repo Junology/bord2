@@ -31,9 +31,11 @@
 *.out
 *.app
 
-# Temporary folders
+# Build folder is not tracked.
 build/*
 
 # Misc
 *~
+\#*\#
+.\#*
 
