@@ -1,0 +1,327 @@
+\documentclass[pdftex,a4paper,12pt]{scrartcl}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{tikz}
+\usepackage{algpseudocode}
+
+%%%
+%%% THEOREM ENVIRONMENTS (amsthm.sty)
+%%%
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{lemma}[theorem]{Lemma}
+
+\theoremstyle{definition}
+\newtheorem*{definition}{Definition}
+
+\theoremstyle{remark}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem*{notation}{Notation}
+
+%%%
+%%% Article data
+%%%
+\title{Technical Materials}
+\author{Jun Yoshida}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+In this note, we explain some technical materials used in the codes.
+
+\section{Quadratic B\'ezier triangles}
+\label{sec:qbezier}
+
+\subsection{Definition}
+
+Let $V$ be a (finite dimensional) real vector space, so there is a canonical identification $TV=V\times V$.
+We write
+\[
+\Delta^2\coloneqq\{(t_0,t_1,t_2)\in\mathbb R^3\mid t_0+t_1+t_2=1,\,t_i\ge0\ \text{for $i=0,1,2$}\}
+\]
+the (geometric) $2$-simplex.
+
+\begin{definition}
+A \emph{quadratic B\'ezier triangle} in $V$ is a map $p:\Delta^2\to V$ of the form
+\[
+p(t_0,t_1,t_2)
+= \sum_{i=0}^2 t_i^2 v^{(i)}+2\sum_{\{i,j,k\}=\{0,1,2\}} t_i t_je^{(k)}
+\]
+for six points $v^{(0)},v^{(1)},v^{(2)},e^{(0)},e^{(1)},e^{(2)}\in V$, which are called the \emph{control points} of $p$.
+\end{definition}
+
+It is easily seen that
+\[
+p(1,0,0) = v^{(0)}
+\ ,\quad p(0,1,0) = v^{(1)}
+\ ,\quad p(0,0,1) = v^{(2)}
+\ ,
+\]
+while the image $p(\Delta^2)$ may not contain the points $e^{(0)}$, $e^{(1)}$, and $e^{(2)}$.
+
+\begin{lemma}
+A quadratic B\'ezier triangle restricts to a quadratic B\'ezier curve on each edge of $\Delta^2$.
+\end{lemma}
+\begin{proof}
+Note that an edge of $\Delta^2$, namely
+\[
+\partial_i\Delta^2\coloneqq \{(t_0,t_1,t_2)\in\Delta^2\mid t_i=0\}
+\]
+for $i=0,1,2$, is parametrized so that, with cyclic indices,
+\[
+t_i=0
+,\,
+t_{i+1}=t
+,\,
+t_{i+2}=1-t
+\quad.
+\]
+In this point of view, we have
+\[
+\left.p\right|_{\partial_i\Delta^2}(t)
+= t^2v^{(i+1)} + 2t(1-t) e^{(i)} + (1-t)^2 v^{(i+2)}
+\quad.
+\]
+\end{proof}
+
+\subsection{Tangent space}
+
+We compute the tangent spaces of quadratic B\'ezier triangles.
+We fix a quadratic B\'ezier triangle $p:\Delta^2\to V$ with control points $v^{(0)},v^{(1)},v^{(2)},e^{(0)},e^{(1)},e^{(2)}\in V$.
+
+First observe that, a vector
+\[
+X=a\frac\partial{\partial t_0}+b\frac\partial{\partial t_1}+c\frac\partial{\partial t_2}
+\]
+on a point of $\Delta^2$ is tangent to $\Delta^2$ if and only if $a+b+c=0$.
+We in particular set
+\[
+X^{ij}\coloneqq  \frac12\left(\frac\partial{\partial t_i}-\frac\partial{\partial t_j}\right)
+\quad.
+\]
+Then, for each point $\vec t\in\Delta^2$, the tangent space $T_{\vec t}\Delta^2$ is spanned by two vectors $X^{ij}$ and $X^{ik}$ provided $\{i,j,k\}=\{0,1,2\}$.
+On the other hand, we have
+\[
+p_\ast\left(\frac\partial{\partial t_i}\right)
+= 2t_iv^{(i)}+2t_je^{(k)}+2t_ke^{(j)}
+\]
+and hence
+\begin{equation}
+\label{eq:dpX}
+\begin{split}
+p_\ast(X^{ij})
+&= t_iv^{(i)}-t_jv^{(j)}+(t_j-t_i)e^{(k)}+t_k(e^{(j)}-e^{(i)}) \\
+&= t_i(v^{(i)}-e^{(k)})+t_j(e^{(k)}-v^{(j)})+t_k(e^{(j)}-e^{(i)})
+\quad.
+\end{split}
+\end{equation}
+Putting $w_{ij}\coloneqq e^{(k)}-v^{(i)}$, one also obtains
+\begin{equation}
+\label{eq:dpX-inw}
+p_\ast(X^{ij})
+= -t_iw_{ij}+t_jw_{ji}+t_k(w_{ki}-w_{kj})
+\quad.
+\end{equation}
+
+\subsection{Singular loci}
+
+We are interested in the singular locus of a quadratic B\'ezier triangle $p:\Delta^2\to V$ for $\dim V\ge 2$.
+In view of the previous section, a point $\vec t=(t_0,t_1,t_2)\in\Delta^2$ is a critical point of $p$ if and only if two vectors $p_\ast(X^{ij})$ and $p_\ast(X^{ik})$ are in parallel for $\{i,j,k\}=\{0,1,2\}$.
+Using the exterior product $V\wedge V$, this is equivalent to the equation
+\[
+p_\ast(X^{ij})\wedge p_\ast(X^{ik})=0
+\quad.
+\]
+On the other hand, by virtue of the equation \eqref{eq:dpX-inw}, we have
+\begin{equation}
+\label{eq:singlocus-def}
+\begin{split}
+& p_\ast(X^{ij})\wedge p_\ast(X^{ik}) \\
+&= \left(-t_iw_{ij}+t_jw_{ji}+t_k(w_{ki}-w_{kj})\right)\wedge\left(-t_iw_{ik}+t_j(w_{ji}-w_{jk})+t_kw_{ki}\right) \\
+&=
+\begin{multlined}[t]
+t_i^2 w_{ij}\wedge w_{ik}-t_j^2w_{ji}\wedge w_{jk}-t_k^2w_{kj}\wedge w_{ki}
+- t_it_j\left(w_{ij}\wedge(w_{ji}-w_{jk})+w_{ji}\wedge w_{ik}\right) \\
+- t_jt_k\left(w_{ki}\wedge w_{jk}+w_{kj}\wedge(w_{ji}-w_{jk})\right)
+- t_it_k\left(w_{ij}\wedge w_{ki}+(w_{ki}-w_{kj})\wedge w_{ik}\right)
+\quad.
+\end{multlined}
+\end{split}
+\end{equation}
+It follows that the quadratic form \eqref{eq:singlocus-def} together with the linear equation $t_i+t_j+t_K=1$ defines the singular locus of $p$.
+Note that, if $\dim V=n$, then $V\wedge V$ is of dimension $n(n-1)/2$; so we have $n(n-1)/2$ defining polynomials.
+In particular, there is generically no critical point of $p$ except in the case $n=2$ where they form a $1$-dimensional submanifold of $\Delta^2$.
+
+
+\section{Rendering quadratic curves by B\'ezier curves}
+
+\subsection{Definition}
+
+Recall that a \emph{quadratic form} on $\mathbb R^n$ is nothing but a real homogeneous polynomial of degree $2$ with $n$ variables.
+More precisely, it is a polynomial of the form
+\begin{equation}
+\label{eq:quad-form-alph}
+q(x_1,\dots,x_n)
+= \sum_{i=1}^n A_ix_i^2+2\sum_{1\le i<j\le n} B_{ij}x_ix_j
+\quad.
+\end{equation}
+For a quadratic form $q$ on $\mathbb R^n$, we define the associated matrix $M_q$ to be
+\[
+\begin{bmatrix}
+A_1 & B_{12} & \cdots & B_{1n} \\
+B_{12} & A_2 & \cdots & B_{2n} \\
+\vdots & \vdots & \ddots & \vdots \\
+B_{1n} & B_{2n} & \cdots & A_n
+\end{bmatrix}
+\quad.
+\]
+Then, we can write
+\begin{equation}
+\label{eq:quad-form-mat}
+q(x_1,\dots,x_n)
+= \vec x^{\mathsf T} M_q\vec x
+=
+\begin{bmatrix}
+x_1 & \cdots & x_n
+\end{bmatrix}
+M_q
+\begin{bmatrix}
+x_1 \\ \vdots \\ x_n
+\end{bmatrix}
+\quad.
+\end{equation}
+
+\begin{definition}
+A quadratic form $q$ on $\mathbb R^n$ is said to be \emph{non-degenerate} (resp. \emph{degenerate}) if $\det M_q\neq 0$ (resp. $\det M_q=0$).
+\end{definition}
+
+\begin{lemma}
+If $q$ is a non-degenerate quadratic form on $\mathbb R^n$, then for the map
+\[
+f_q:\mathbb R^{n-1}\to\mathbb R\ ;\quad (y_1,\dots,y_{n-1}) \mapsto q(y,\dots ,y_{n-1},1)
+\quad,
+\]
+$0\in\mathbb R$ is a regular value of $f_q$.
+\end{lemma}
+\begin{proof}
+We prove the contraposition; in particular, we show that if $\vec y=(y_1,\dots,y_{n-1})\in\mathbb R^{n-1}$ is a critical point of $f_q$ with $f_q(\vec y)=0$, then the vector $(y_1,\dots,y_{n-1},1)$ belongs to the kernel of $M_q$.
+
+The direct computation shows that the total derivative $df:\mathbb R^{n-1}\to T^\ast\mathbb R^{n-1}$ is given by
+\[
+df_q(y_1,\dots,y_{n-1})
+= \sum_{i=1}^{n-1}\left(\vec e^{(i)\mathsf T} M_q\widehat y+\widehat y^{\mathsf T} M_q e_i\right) dy_i \\
+= 2 \sum_{i-1}^{n-1} \vec e^{(i)\mathsf T}M_q\widehat y\, dy_i
+\quad,
+\]
+here $\widehat y=(y_1,\dots,y_{n-1},1)$ and $\vec e^{(i)}=(0,\dots,\overset{\substack{i\\\smash\smile}}{1},\dots,0)$ seen as column vectors.
+Under the canonical identification $T^\ast\mathbb R^{n-1}\cong \mathbb R^{n-1}\times\mathbb R^{n-1}$, it turns out that $df$ can be seen as the map given by
+\begin{equation}
+\label{eq:prf:fq-diff}
+df_q(y_1,\dots,y_{n-1})
+= 2M_q'\vec y+ 2v_q
+\quad,
+\end{equation}
+where $\vec y=(y_1,\dots,y_{n-1},0)$ and $M_q'$ and $v_q$ are defined so that
+\[
+M_q =
+\left[
+\begin{array}{c|c}
+  M_q' & v_q  \rule[-1.5ex]{0pt}{4ex}\\\hline\rule[-1.5ex]{0pt}{4ex}
+  v_q^{\mathsf T} & A_n
+\end{array}
+\right]
+\quad.
+\]
+On the other hand, we have
+\[
+\begin{split}
+f_q(y_1,\dots,y_{n-1})
+&= q(y_1,\dots,y_{n-1},1) \\
+&= \widehat y^{\mathsf T} M_q\widehat y \\
+&= \vec y^{\mathsf T} M_q'\vec y + 2v_q^{\mathsf T}\vec y + A_n
+\quad.
+\end{split}
+\]
+Hence, for $(y_1,\dots,y_{n-1})\in\mathbb R^{n-1}$ with $df(y_1,\dots,y_{n-1})=0$, we have
+\begin{equation}
+\label{eq:prf:fq-critv}
+f_q(y_1,\dots,y_{n-1})
+= v_q^{\mathsf T}\vec y + A_n
+\quad.
+\end{equation}
+Combining \eqref{eq:prf:fq-diff} and \eqref{eq:prf:fq-critv}, we obtain $M_q\widehat y=0$ provided $df_q(y_1,\dots,y_{n-1})=f_q(y_1,\dots,y_{n-1})=0$.
+This is exactly what we want to show.
+\end{proof}
+
+\begin{definition}
+A \emph{(real) quadratic curve} is a curve $C$ in $\mathbb R^2$ such that
+\[
+C=\{(x,y)\in\mathbb R^2\mid q(x,y,1)=0\}
+\]
+for a quadratic form $q(x,y,z)$ on $\mathbb R^3$.
+\end{definition}
+
+\subsection{Algorithm}
+
+Fix a quadratic form $q(x,y,z)$ on $\mathbb R^3$.
+In this section, we discuss an algorithm rendering the quadratic curve $C=\{(x,y)\mid q(x,y,1)=0\}$ with quadratic B\'ezier curvees.
+The following is a pseudo-code for our approach:
+\begin{algorithmic}[1]
+\Procedure{Render-Quad-Curve}{$q$:\:quadratic form, $X$:\:canvas}
+\State $T\gets$ sufficiently fine triangualation of $X$
+\ForAll{$\Delta\in T$}
+\State $S\gets$ \Call{Segments}{$q$,$\Delta$}
+\ForAll{$(v,w)\in S$}
+\State $c\gets \operatorname{solve}(d_vq(x-v)=d_wq(x-w)=0)$
+\State $\operatorname{qbezier}(v,c,w)$
+\EndFor
+\EndFor
+\EndProcedure
+\end{algorithmic}
+In the function \textsc{Segments}, we compute the pairs $(v,w)$ such that
+\begin{itemize}
+  \item $v,w\in\partial\Delta\cap\{f_q=0\}$;
+  \item $v$ and $w$ belong to the same connected component of $\Delta\cap\{f_q=0\}$.
+\end{itemize}
+We implement it as follows.
+Note that, for two totally ordered sets $P$ and $Q$, we denote by $P\star Q$ the join of them.
+\begin{algorithmic}[1]
+\Procedure{Segments}{$q$:\:quadratic form, $\Delta$:\:$2$-dim.~polygon}
+\State $I\gets\varnothing$ as a totally ordered set
+\ForAll{$v\in\operatorname{Vertex}(\Delta)$}
+\If{$q(v)=0$}
+\State $I\gets I\star\{v\}$
+\EndIf
+\EndFor
+\ForAll{$e\in\operatorname{Edge}(\Delta)$}
+\State $I\gets I\star(\operatorname{Interior}(e)\cap \{f_q=0\})$
+\EndFor
+\State \Return \Call{Pairs}{$q$, $I$}
+\EndProcedure
+
+\Procedure{Pairs}{$q$:\:a quadratic form, $I$:\:a set of points in $\{f_q=0\}$}
+\If{$\#I\le 1$}
+\Comment{Nothing can form a pair}
+\State \Return $\varnothing$
+\ElsIf{$\#I=2$}
+\Comment{A connected pair is found}
+\State Let $\{(v,w)\}\gets I$
+\State \Return $\{(v,w)\}$
+\EndIf
+\State $v\gets\operatorname{Head}(I)$
+\Comment{Fix a reference point}
+\State $I_+\gets \{w\in I\mid d_vq(w-v)>0\}$
+\Comment{the subset of points lying on the ``right'' of $v$}
+\State $I_-\gets \{w\in I\mid d_vq(w-v)<0\}$
+\Comment{the subset of points lying on the ``left'' of $v$}
+\State \Return \Call{Pairs}{$q$, $I_+\star\{v\}$} $\cup$ \Call{Pairs}{$q$, $I_-\star\{v\}$}
+\Comment{Make pairs on the left and the right respectively}
+\EndProcedure
+\end{algorithmic}
+
+\end{document}
