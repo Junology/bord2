@@ -10,36 +10,43 @@
 
 #include <array>
 
+namespace bord2 {
+
+//! The list of colors (borrowed from TikZ).
+enum PathColor {
+    Black,
+    White,
+    Red,
+    Green,
+    Blue,
+    Cyan,
+    Magenta,
+    Yellow,
+    Gray,
+    Brown,
+    Lime,
+    Olive,
+    Orange,
+    Pink,
+    Purple,
+    Teal,
+    Violet
+};
+
+//! Stroke patterns
+enum StrokePattern {
+    Solid,
+    Dotted,
+    Dashed
+};
+
+} // end namespace bord2
+
 //! Interface class providing path-based rendering.
+template<class T>
 class PathScheme {
 public:
-    //! The list of colors (borrowed from TikZ).
-    enum Color {
-        Black,
-        White,
-        Red,
-        Green,
-        Blue,
-        Cyan,
-        Magenta,
-        Yellow,
-        Gray,
-        Brown,
-        Lime,
-        Olive,
-        Orange,
-        Pink,
-        Purple,
-        Teal,
-        Violet
-    };
-
-    //! Stroke patterns
-    enum StrokePattern {
-        Solid,
-        Dotted,
-        Dashed
-    };
+    using vertex_type = T;
 
     PathScheme() = default;
     virtual ~PathScheme() = default;
@@ -49,14 +56,15 @@ public:
     //! Get the bounding box of the drawing area.
     //! \return The array of the form {left, top, right, bottom}.
     virtual BBoxT getBBox() const = 0;
+
     virtual std::array<double,2> getCenter() const {
         auto bbox = getBBox();
         return {(bbox[0]+bbox[2])/2.0, (bbox[1]+bbox[3])/2.0};
     }
 
     //* Pens and Brushes
-    virtual void setPen(double wid, Color col = Black, StrokePattern pat = Solid) = 0;
-    virtual void setBrush(Color col) = 0;
+    virtual void setPen(double wid, bord2::PathColor col = bord2::Black, bord2::StrokePattern pat = bord2::Solid) = 0;
+    virtual void setBrush(bord2::PathColor col) = 0;
 
     //* Drawing paths.
     //! Stroke and flush.
@@ -70,31 +78,26 @@ public:
 
     //* Path elements.
     //! Move the current position.
-    virtual void moveTo(double x, double y) = 0;
+    virtual void moveTo(vertex_type const &p) = 0;
     //! Move the current position drawing a line from the old.
-    virtual void lineTo(double x, double y) = 0;
+    virtual void lineTo(vertex_type const &p) = 0;
     //! Move the current position drawing a cubic Bezier curve.
-    virtual void bezierTo(double c1x, double c1y, double c2x, double c2y, double x, double y) = 0;
+    virtual void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) = 0;
     //! Move the current position drawing a quadratic Bezier curve.
-    virtual void qbezierTo(double cx, double cy, double x, double y) = 0;
+    virtual void qbezierTo(vertex_type const &c, vertex_type const &p) = 0;
     //! Close path.
     virtual void closePath() = 0;
-
-    //* Commonly used shapes.
-    void rectangle(double lx, double ty, double rx, double by) {
-        moveTo(lx, ty);
-        lineTo(lx, by);
-        lineTo(rx, by);
-        lineTo(rx, ty);
-        closePath();
-    }
 };
 
 //! Base class for figures which draw themselves using PathScheme.
+template <class T>
 class PathFigure {
 public:
+    using vertex_type = T;
+    using SchemeType = PathScheme<vertex_type>;
+
     PathFigure() = default;
     virtual ~PathFigure() = default;
 
-    virtual void draw(PathScheme&) const = 0;
+    virtual void draw(SchemeType&) const = 0;
 };

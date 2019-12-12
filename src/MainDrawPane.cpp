@@ -6,11 +6,15 @@
  * \date Descember 3, 2019: created
  */
 
+#include "MainDrawPane.hpp"
+
 #include <iostream>
 #include <memory>
 #include <wx/graphics.h>
 
-#include "MainDrawPane.hpp"
+#include "WxGSScheme.hpp"
+#include "OrthoSpatialScheme.hpp"
+
 #include "figures/figures.hpp"
 
 BEGIN_EVENT_TABLE(MainDrawPane, wxPanel)
@@ -22,7 +26,7 @@ END_EVENT_TABLE()
 
 //! Constructor
 MainDrawPane::MainDrawPane(wxFrame *parent)
-    : wxPanel(parent), mp_fig3d(), m_elev(0.0), m_azim(0.0)
+: wxPanel(parent), mp_fig3d(), m_elev(0.0), m_azim(0.0), m_focus({400.0, 0.0, 300.0})
 {
     mp_fig3d.reset(
         new QBezierLine3D(
@@ -31,8 +35,6 @@ MainDrawPane::MainDrawPane(wxFrame *parent)
             {400.0, 0.0, 400.0}
             )
         );
-    mp_fig3d->setFocus(400.0, 0.0, 300.0);
-    mp_fig3d->setAngles(m_elev, m_azim);
 }
 
 //! Paint Event handler
@@ -67,7 +69,6 @@ void MainDrawPane::OnKeyDown(wxKeyEvent &event)
         break;
     }
 
-    mp_fig3d->setAngles(m_elev, m_azim);
     this->Refresh();
 }
 
@@ -78,6 +79,6 @@ void MainDrawPane::render(wxWindowDC &&dc)
     dc.SetBackground(*wxWHITE_BRUSH);
     dc.Clear();
 
-    WxGSScheme wxgs(dc);
+    OrthoSpatialScheme<WxGSScheme> wxgs(m_focus, m_elev, m_azim, std::forward<wxWindowDC>(dc));
     mp_fig3d->draw(wxgs);
 }

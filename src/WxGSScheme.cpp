@@ -18,58 +18,58 @@
  *** Utility functions.
  ******************************/
 //! Convert Color to wxColour
-wxColour getWxColor(const WxGSScheme::Color &col)
+wxColour getWxColor(const bord2::PathColor &col)
 {
     switch (col) {
-    case WxGSScheme::Black:
+    case bord2::Black:
         return *wxBLACK;
 
-    case WxGSScheme::White:
+    case bord2::White:
         return *wxWHITE;
 
-    case WxGSScheme::Red:
+    case bord2::Red:
         return *wxRED;
 
-    case WxGSScheme::Green:
+    case bord2::Green:
         return *wxGREEN;
 
-    case WxGSScheme::Blue:
+    case bord2::Blue:
         return *wxBLUE;
 
-    case WxGSScheme::Cyan:
+    case bord2::Cyan:
         return *wxCYAN;
 
-    case WxGSScheme::Magenta:
+    case bord2::Magenta:
         return wxTheColourDatabase->Find("MAGENTA");
 
-    case WxGSScheme::Yellow:
+    case bord2::Yellow:
         return *wxYELLOW;
 
-    case WxGSScheme::Gray:
+    case bord2::Gray:
         return wxTheColourDatabase->Find("GREY");
 
-    case WxGSScheme::Brown:
+    case bord2::Brown:
         return wxTheColourDatabase->Find("BROWN");
 
-    case WxGSScheme::Lime:
+    case bord2::Lime:
         return wxTheColourDatabase->Find("LIME GREEN");
 
-    case WxGSScheme::Olive:
+    case bord2::Olive:
         return wxTheColourDatabase->Find("DARK OLIVE GREEN");
 
-    case WxGSScheme::Orange:
+    case bord2::Orange:
         return wxTheColourDatabase->Find("ORANGE");
 
-    case WxGSScheme::Pink:
+    case bord2::Pink:
         return wxTheColourDatabase->Find("PINK");
 
-    case WxGSScheme::Purple:
+    case bord2::Purple:
         return wxTheColourDatabase->Find("PURPLE");
 
-    case WxGSScheme::Teal:
+    case bord2::Teal:
         return wxColour(0, 0x80, 0x80);
 
-    case WxGSScheme::Violet:
+    case bord2::Violet:
         return wxTheColourDatabase->Find("VIOLET");
 
     default:
@@ -105,20 +105,20 @@ void WxGSScheme::clear()
  ***  Overriding methods
  *********************************/
 //** Pens and Brushes
-void WxGSScheme::setPen(double wid, WxGSScheme::Color col, WxGSScheme::StrokePattern pat)
+void WxGSScheme::setPen(double wid, bord2::PathColor col, bord2::StrokePattern pat)
 {
     wxPenStyle wxpen;
 
     switch (pat) {
-    case Solid:
+    case bord2::Solid:
         wxpen = wxPENSTYLE_SOLID;
         break;
 
-    case Dotted:
+    case bord2::Dotted:
         wxpen = wxPENSTYLE_DOT;
         break;
 
-    case Dashed:
+    case bord2::Dashed:
         wxpen = wxPENSTYLE_SHORT_DASH;
         break;
 
@@ -132,7 +132,7 @@ void WxGSScheme::setPen(double wid, WxGSScheme::Color col, WxGSScheme::StrokePat
     mp_gc->SetPen(wxPen(getWxColor(col), static_cast<int>(wid), wxpen));
 }
 
-void WxGSScheme::setBrush(Color col)
+void WxGSScheme::setBrush(bord2::PathColor col)
 {
     mp_gc->SetBrush(wxBrush(getWxColor(col)));
 }
@@ -152,27 +152,27 @@ void WxGSScheme::fillPres()
 
 //* Path elements.
 //! Move the current position.
-void WxGSScheme::moveTo(double x, double y)
+void WxGSScheme::moveTo(WxGSScheme::vertex_type const &p)
 {
-    mp_path->MoveToPoint(x, y);
+    mp_path->MoveToPoint(p[0], p[1]);
 }
 
 //! Move the current position drawing a line from the old.
-void WxGSScheme::lineTo(double x, double y)
+void WxGSScheme::lineTo(WxGSScheme::vertex_type const &p)
 {
-    mp_path->AddLineToPoint(x,y);
+    mp_path->AddLineToPoint(p[0],p[1]);
 }
 
 //! Move the current position drawing a cubic Bezier curve.
-void WxGSScheme::bezierTo(double c1x, double c1y, double c2x, double c2y, double x, double y)
+void WxGSScheme::bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p)
 {
-    mp_path->AddCurveToPoint(c1x, c1y, c2x, c2y, x, y);
+    mp_path->AddCurveToPoint(c1[0], c1[1], c2[0], c2[1], p[0], p[1]);
 }
 
 //! Move the current position drawing a quadratic Bezier curve.
-void WxGSScheme::qbezierTo(double cx, double cy, double x, double y)
+void WxGSScheme::qbezierTo(vertex_type const &c, vertex_type const &p)
 {
-    mp_path->AddQuadCurveToPoint(cx, cy, x, y);
+    mp_path->AddQuadCurveToPoint(c[0], c[1], p[0], p[1]);
 }
 
 //! Close path.

@@ -9,6 +9,7 @@
 #pragma once
 
 #include <utility>
+#include <array>
 #include <memory>
 
 #include <wx/wxprec.h>
@@ -19,7 +20,7 @@
 
 #include "PathScheme.hpp"
 
-class WxGSScheme : public PathScheme
+class WxGSScheme : public PathScheme<std::array<double,2> >
 {
 private:
     std::unique_ptr<wxGraphicsContext> mp_gc;
@@ -33,8 +34,8 @@ public:
 
     //* Overriding methods.
     //** Scheme data query
-    PathScheme::BBoxT getBBox() const override {
-        PathScheme::BBoxT sz{0.0, 0.0, 0.0, 0.0};
+    BBoxT getBBox() const override {
+        BBoxT sz{0.0, 0.0, 0.0, 0.0};
         if(mp_gc) {
             mp_gc->GetSize(&(sz[2]), &(sz[3]));
         }
@@ -42,8 +43,8 @@ public:
     }
 
     //** Pens and Brushes
-    void setPen(double wid, Color col = Black, StrokePattern pat = Solid) override;
-    void setBrush(Color col) override;
+    void setPen(double wid, bord2::PathColor col = bord2::Black, bord2::StrokePattern pat = bord2::Solid) override;
+    void setBrush(bord2::PathColor col) override;
 
     //** Drawing paths.
     //! Stroke and flush.
@@ -61,15 +62,15 @@ public:
     //! Fill without flush
     void fillPres() override;
 
-    //** Path elements.
+    //* Path elements.
     //! Move the current position.
-    void moveTo(double x, double y) override;
+    virtual void moveTo(vertex_type const &p) override;
     //! Move the current position drawing a line from the old.
-    void lineTo(double x, double y) override;
+    virtual void lineTo(vertex_type const &p) override;
     //! Move the current position drawing a cubic Bezier curve.
-    void bezierTo(double c1x, double c1y, double c2x, double c2y, double x, double y) override;
+    virtual void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) override;
     //! Move the current position drawing a quadratic Bezier curve.
-    void qbezierTo(double cx, double cy, double x, double y) override;
+    virtual void qbezierTo(vertex_type const &c, vertex_type const &p) override;
     //! Close path.
-    void closePath() override;
+    virtual void closePath() override;
 };

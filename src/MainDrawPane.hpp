@@ -15,14 +15,14 @@
 
 #include <memory>
 
-#include "WxGSScheme.hpp"
 #include "figures/figures.hpp"
 
 class MainDrawPane : public wxPanel
 {
 private:
-    std::unique_ptr<PathFigure3D> mp_fig3d;
+    std::unique_ptr<QBezierLine3D> mp_fig3d;
     double m_elev, m_azim;
+    std::array<double,3> m_focus;
 
 public:
     typedef enum _Error {
