@@ -10,6 +10,7 @@ if(GTEST_FOUND)
   include_directories(${GTEST_INCLUDE_DIRS})
 
   add_executable(${PROJECT_NAME_TEST}
+	test_utils.cpp
 	test_math.cpp
 	${CMAKE_SOURCE_DIR}/src/math/funcs.cpp)
 
