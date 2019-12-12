@@ -3,6 +3,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{mathtools}
 \usepackage{tikz}
+\usetikzlibrary{cd}
 \usepackage{algpseudocode}
 
 %%%
@@ -265,6 +266,59 @@ C=\{(x,y)\in\mathbb R^2\mid q(x,y,1)=0\}
 \]
 for a quadratic form $q(x,y,z)$ on $\mathbb R^3$.
 \end{definition}
+
+\begin{remark}
+It is easily seen that a quadratic form actually defines an algebraic function on the projective space $\mathbb P^n$.
+One may sometimes use the word ``quadratic curves'' to refer algebraic subsets of the projective space $\mathbb P^2$ defined by quadratic forms of three variables.
+In such cases, ``quadratic curves'' are always compact while ours might not.
+\end{remark}
+
+\subsection{Intersections with segments}
+
+We next discuss the intersections of quadratic curves with line segments.
+Recall that, for two points $v,w\in\mathbb R^{n-1}$ in the Euclidean space, the line segment connecting them is given as the function $\gamma_{vw}:[0,1]\to\mathbb R^{n-1}$ with
+\[
+\gamma_{vw}(t)\coloneqq (1-t)v + tw
+\quad.
+\]
+
+\begin{lemma}
+Let $q$ be a quadratic form on $\mathbb R^n$ and $v,w\in\mathbb R^{n-1}$.
+Then, the line segment $\gamma_{vw}$ intersects with the set
+\[
+Q\coloneqq \left\{(y_1,\dots,y_{n-1})\mid q(y_1,\dots,y_{n-1},1)=0\right\}
+\]
+at a parameter $t\in[0,1]$ if and only if $t$ is the solution of the following equation:
+\[
+\left((w-v)^{\mathsf T}M'_q(w-v)\right)t^2
++ 2\left((w-v)^{\mathsf T}(M'_q v + v_q)\right)t
++ \widehat v^{\mathsf T}M_q \widehat v
+= 0
+\quad,
+\]
+where $M_q$, $M'_q$, and $v_q$ are defined as in the previous section.
+\end{lemma}
+\begin{proof}
+We put $f_q(y_1,\dots,y_{n-1})\coloneqq q(y_1,\dots,y_{n-1},1)$, then we have to solve the equation $f_q(\gamma_{vw}(t))=0$.
+Since $f_q$ is a polynomial of degree at most $2$, computing the Taylor series of the composition $f_q\gamma_{vw}$, we obtain
+\[
+\begin{split}
+&[f_q\circ\gamma_{vw}](t) \\
+&= f_q(v+t(w-v)) \\
+&= f_q(v)
++ t\cdot\left(\left.\frac{d}{dt}\right|_{t=0} f_q(v+t(w-v))\right)
++ \frac{t^2}{2}\left(\left.\frac{d^2}{dt^2}\right|_{t=0} f_q(v+t(w-v))\right)
+\quad.
+\end{split}
+\]
+On the other hand, we have
+\[
+(\gamma_{vw})_\ast\left(\frac{d}{dt}\right)
+= \sum_{i=1}^{n-1} (v_i-w_i)\frac\partial{\partial y_i}
+\quad.
+\]
+Thus, combining with the equation \eqref{eq:prf:fq-diff}, one obtains the result.
+\end{proof}
 
 \subsection{Algorithm}
 

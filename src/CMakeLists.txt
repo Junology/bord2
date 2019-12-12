@@ -6,6 +6,7 @@ add_executable(
   MainFrame.cpp
   MainDrawPane.cpp
   WxGSScheme.cpp
+  math/funcs.cpp
 )
 
 target_link_libraries(

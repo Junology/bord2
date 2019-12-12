@@ -6,16 +6,22 @@
  * \date Descember 9, 2019: created
  */
 
+#pragma once
+
+// #include <iostream> // only for Debug
 #include <utility>
+#include <tuple>
 #include <array>
 #include <Eigen/Dense>
+
+#include "utils.hpp"
 
 template<size_t n>
 class AffHypPlane
 {
 public:
     static constexpr size_t dim = n;
-    static constexpr double threshold = 1e-10;
+    static constexpr double threshold = 1e-14;
     using VecT = typename Eigen::Matrix<double,dim,1>;
 
 private:
@@ -40,36 +46,75 @@ public:
     ~AffHypPlane() = default;
 
     //! Compute an intersection with another hyper plane.
-    std::pair<bool,VecT> intersect(AffHypPlane<dim> const &another) const {
+    template <size_t m= dim>
+    std::pair<bool,VecT> intersect(AffHypPlane<m> const &another) const
+    {
         Eigen::Matrix<double,2,dim> A;
         A.row(0) = m_normal;
         A.row(1) = another.m_normal;
-        Eigen::Vector2d b{m_c, another.m_c};
+        Eigen::Vector2d b{-m_c, -another.m_c};
 
-        Eigen::Matrix<double,dim,1> x = A.colPivHouseholderQr().solve(-b);
+        Eigen::Matrix<double,dim,1> x = A.colPivHouseholderQr().solve(b);
 
-        return {(A*x+b).norm()/(b.norm()+m_normal.norm()) < threshold, x};
+        return {(A*x-b).norm()/(b.norm()+m_normal.norm()) < threshold, x};
     }
 
-    template <class T>
-    auto height(T const &v) const
-        -> std::enable_if_t<std::is_same<T,VecT>::value,double>
+    //! Compute the height of a given point from the hyperplane.
+    //! \warning: The value is not normalized; or with respect to the normal vector of the hyperplane.
+    double height(VecT const &v) const
     {
-     return m_normal.adjoint()*v+m_c;
+        return m_normal.adjoint()*v+m_c;
     }
 
-    double height(std::array<double,dim> const &v) const
+    template <class... Ts>
+    auto height(Ts&&... xs)
+        -> std::enable_if_t<sizeof...(Ts)==dim && bord2::all_of<std::is_convertible<Ts,double>::value...>::value, double>
     {
-        return height(v, std::make_index_sequence<dim>{});
-    }
-
-private:
-    template<size_t... I>
-    double height(std::array<double,dim> const &v, std::index_sequence<I...>) const
-    {
-        return height(VecT(v[I]...));
+        return height(VecT(std::forward<double>(xs)...));
     }
 };
 
 template<size_t n>
 constexpr double AffHypPlane<n>::threshold;
+
+//! Compute an intersection with another hyper plane in the special case of dimension 2.
+template <> template<>
+std::pair<bool,typename AffHypPlane<2>::VecT> AffHypPlane<2>::intersect<2>(AffHypPlane<2> const &another) const
+{
+    // If two lines pass through the origin, then return the obvious intersection.
+    if (std::abs(m_c) < threshold && std::abs(another.m_c) < threshold)
+        return {true, VecT(0.0, 0.0)};
+
+    double det = m_normal(0)*another.m_normal(1) - m_normal(1)*another.m_normal(0);
+
+    if (std::abs(det) < threshold) {
+        double detx = -m_c*another.m_normal(1)+another.m_c*m_normal(1);
+        double dety = -m_c*another.m_normal(0)+another.m_c*m_normal(0);
+
+        /* Debug
+        std::cout << __FILE__ << " (" << __LINE__<< "):" << std::endl;
+        std::cout << "(" << m_normal(0) << "," << m_normal(1) << "," << m_c << ")" << std::endl;
+        std::cout << "(" << another.m_normal(0) << "," << another.m_normal(1) << "," << another.m_c << ")" << std::endl;
+        std::cout << "detx=" << detx << std::endl;
+        std::cout << "dety=" << dety << std::endl;
+        // */
+
+        if (std::abs(detx) > threshold || std::abs(dety) > threshold)
+            return {false, VecT()};
+        else if (m_normal(0) > threshold)
+            return {true, VecT(-m_c/m_normal(0), 0.0)};
+        else if (m_normal(1) > threshold)
+            return {true, VecT(0.0, -m_c/m_normal(1))};
+        else if (another.m_normal(0) > threshold)
+            return {true, VecT(-another.m_c/another.m_normal(0), 0.0)};
+        else if (another.m_normal(1) > threshold)
+            return {true, VecT(0.0, -another.m_c/another.m_normal(1))};
+        else
+            return {false, VecT(0,0)};
+    }
+    else {
+        double x = (-m_c*another.m_normal(1)+another.m_c*m_normal(1))/det;
+        double y = (m_c*another.m_normal(0)-another.m_c*m_normal(0))/det;
+        return {true, VecT(x,y)};
+    }
+}
