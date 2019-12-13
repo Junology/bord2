@@ -61,9 +61,20 @@ public:
 template <size_t N>
 using make_reversed_index_seq = typename make_reversed_index_seq_impl<N>::type;
 
+
 /****************************!
  * \section Combinatorials
  ****************************/
+
+//! Compile-time non-negative integer power
+template<class T>
+inline constexpr std::remove_reference_t<std::remove_cv_t<T> > cipow(T &&x, size_t n)
+{
+    if (n==0)
+        return 1;
+    else
+        return ((n&0x1) ? x : 1)*cipow(x*x,n>>1);
+}
 
 //! Binomial coefficients
 template<
@@ -75,8 +86,6 @@ template<
 struct binom {
     static constexpr T get(T n, T k)
     {
-        T result = 1;
-
         if (k < 0 || k > n)
             return 0;
 
@@ -85,6 +94,8 @@ struct binom {
 
         if (k == 0)
             return 1;
+
+        T result = 1;
 
         for (T i = 0; i < k; ++i)
         {

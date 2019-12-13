@@ -23,7 +23,7 @@
 template <
     class T,
     size_t n,
-    class = std::pair<
+    class U = std::pair<
         decltype(std::declval<T>()+std::declval<T>()),
         decltype(std::declval<double>()*std::declval<T>())
         >
@@ -31,8 +31,11 @@ template <
 class Bezier
 {
 public:
+    //! The type of control points.
     using vertex_type = T;
+    //! The degree of the Bezier curve.
     static constexpr size_t degree = n;
+    //! The number of control points.
     static constexpr size_t num_pts = n+1;
 
 protected:
@@ -40,22 +43,35 @@ protected:
 
 public:
     template <class... Ts>
-    Bezier(Ts &&... pts)
-        : m_pts({std::forward<Ts>(pts)...})
+    constexpr Bezier(Ts &&... pts)
+        : m_pts{std::forward<Ts>(pts)...}
     {}
+
+    constexpr Bezier(Bezier<vertex_type,n,U> const &) = default;
+    constexpr Bezier(Bezier<vertex_type,n,U> &&) = default;
 
     ~Bezier() = default;
 
     //! Get a control point.
     template<size_t i>
-    auto get() const
+    constexpr auto get() const
         -> std::enable_if_t<(i<num_pts), vertex_type const&>
     {
         return m_pts[i];
     }
 
+    //! Evaluate the point at parameter t.
+    constexpr vertex_type eval(double t) const {
+        constexpr auto binomArr = bord2::binom<>::getArray<double,degree>();
+        vertex_type result = bord2::cipow(1-t,degree) * m_pts[0];
+
+        for(size_t i = 1; i < num_pts; ++i)
+            result = result + bord2::cipow(1.0-t,degree-i)*bord2::cipow(t,i)*binomArr[i]*m_pts[i];
+        return result;
+    }
+
     //! Divide the Bezier curve using De Casteljau's algorithm.
-    auto divide() -> std::pair< Bezier<T,n>,Bezier<T,n> >
+    constexpr auto divide() const -> std::pair< Bezier<T,n>,Bezier<T,n> >
     {
         return {
             divide_forth_impl(std::make_index_sequence<num_pts>()),
@@ -64,10 +80,8 @@ public:
     }
 
 protected:
-    vertex_type weightedSum(std::array<double,num_pts> const &weights) {
-        if (num_pts <= 0)
-            return vertex_type{};
-
+    constexpr vertex_type weightedSum(std::array<double,num_pts> const &weights) const {
+        // Note that num_pts is always positive.
         vertex_type result = weights[0]*m_pts[0];
 
         for(size_t i = 1; i < num_pts; ++i)
@@ -77,16 +91,23 @@ protected:
     }
 
     template<size_t... is>
-    auto divide_forth_impl(std::index_sequence<is...>)
+    constexpr auto divide_forth_impl(std::index_sequence<is...>) const
         -> std::array<vertex_type, num_pts>
     {
-        return {weightedSum(bord2::binom<>::getArray<double,is,num_pts>())...};
+        return {bord2::cipow(0.5,is)*weightedSum(bord2::binom<>::getArray<double,is,num_pts>())...};
     }
 
     template<size_t... is>
-    auto divide_latter_impl(std::index_sequence<is...>)
+    constexpr auto divide_latter_impl(std::index_sequence<is...>) const
         -> std::array<vertex_type, num_pts>
     {
-        return {weightedSum(bord2::binom<>::getArrayRev<double,is,num_pts>())...};
+        return {bord2::cipow(0.5,is)*weightedSum(bord2::binom<>::getArrayRev<double,is,num_pts>())...};
     }
 };
+
+template <class T, size_t n, class U>
+constexpr size_t Bezier<T,n,U>::degree;
+
+template <class T, size_t n, class U>
+constexpr size_t Bezier<T,n, U>::num_pts;
+
