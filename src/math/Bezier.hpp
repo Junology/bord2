@@ -33,10 +33,12 @@ class Bezier
 public:
     //! The type of control points.
     using vertex_type = T;
-    //! The degree of the Bezier curve.
-    static constexpr size_t degree = n;
-    //! The number of control points.
-    static constexpr size_t num_pts = n+1;
+    enum : size_t {
+        //! The degree of the Bezier curve.
+        degree = n,
+        //! The number of control points.
+        num_pts = n+1
+    };
 
 protected:
     std::array<vertex_type, num_pts> m_pts;
@@ -50,7 +52,7 @@ public:
     constexpr Bezier(Bezier<vertex_type,n,U> const &) = default;
     constexpr Bezier(Bezier<vertex_type,n,U> &&) = default;
 
-    ~Bezier() = default;
+    virtual ~Bezier() = default;
 
     //! Get a control point.
     template<size_t i>
@@ -104,10 +106,4 @@ protected:
         return {bord2::cipow(0.5,is)*weightedSum(bord2::binom<>::getArrayRev<double,is,num_pts>())...};
     }
 };
-
-template <class T, size_t n, class U>
-constexpr size_t Bezier<T,n,U>::degree;
-
-template <class T, size_t n, class U>
-constexpr size_t Bezier<T,n, U>::num_pts;
 

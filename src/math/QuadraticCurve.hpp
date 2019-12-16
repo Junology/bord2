@@ -8,10 +8,13 @@
 
 #pragma once
 
+#include <memory>
+#include <array>
+#include <vector>
 #include <Eigen/Dense>
 
-#include "funcs.hpp"
 #include "AffHypPlane.hpp"
+#include "Bezier.hpp"
 
 /*!
  * The class represents a quadratic curve on the Euclidean plane R^2.
@@ -22,15 +25,14 @@ private:
     Eigen::Matrix3d m_M;
 
 public:
+    static constexpr double threshold = 10e-14;
+
     //! Constructor, which accepts the coefficients of the associated quadratic form; namely,
     //! ax^2+by^2+cz^2+dxy+exz+fyz
-    QuadraticCurve(double a, double b, double c, double d, double e, double f)
-    {
-        m_M <<
-            a, d/2, e/2,
-            d/2, b, f/2,
-            e/2, f/2, c;
-    }
+    QuadraticCurve(double a, double b, double c, double d, double e, double f);
+
+    QuadraticCurve(QuadraticCurve const &) = default;
+    QuadraticCurve(QuadraticCurve &&) = default;
 
     ~QuadraticCurve() = default;
 
@@ -45,28 +47,42 @@ public:
     //! Generate an affine line tangent to the curve q(x,y,1)=q(x0,y0,1).
     AffHypPlane<2> tangent(double x0, double y0) const
     {
-        Eigen::Vector2d normal = (m_M.block<2,3>(0,0) * Eigen::Vector3d(x0, y0, 1.0));
-        return AffHypPlane<2>(normal, Eigen::Vector2d(x0, y0));
+        Eigen::Vector2d df = m_M.block<2,3>(0,0) * Eigen::Vector3d(x0, y0, 1.0);
+        return AffHypPlane<2>(df, Eigen::Vector2d(x0, y0));
     }
 
-    //! Compute the parameter t (0<t<1) at which the segment (1-t)p0 + t p1 intersects with the curve.
-    std::vector<double> intersectParams(Eigen::Vector2d const &p0, Eigen::Vector2d const &p1)
+    AffHypPlane<2> tangent(Eigen::Vector2d const &p) const
     {
-        // Vector of the direction of p1 from p0
-        Eigen::Vector2d v = p1-p0;
-        Eigen::Vector3d p0E(p0(0), p0(1), 1);
-
-        // Coefficients of the equation we have to solve
-        double ca = (v.adjoint() * m_M.block<2,2>(0,0) * v)(0);
-        double cb = 2.0 * (v.adjoint() * (m_M.block<2,3>(0,0) * p0E))(0);
-        double cc = (p0E.adjoint() * m_M * p0E)(0);
-
-        return bord2::solveQuadRange(ca, cb, cc, {0.0, 1.0}).first;
+        return tangent(p(0), p(1));
     }
 
-    //! Compute the parameter t (0<t<1) at which the segment (1-t)(x0,y0)+t(x1,y1) intersects with the curve.
+    //! Compute the curvature vector at a given point (x0,y0).
+    Eigen::Vector2d curvature(double x0, double y0) const;
+
+    Eigen::Vector2d curvature(Eigen::Vector2d const &p) const
+    {
+        return curvature(p(0),p(1));
+    }
+
+    /*! If the curve is hyperbolic, compute an affine line such that
+     * - it divides the plain into two components each of which contains one of the two connected component of the hyperbola;
+     * - the curve is invariant under the reflection associated to the line.
+     * If the curve is not hyperbolic, i.e. it is elliptic, parabolic, or degenerate, then nullptr is returned.
+     */
+    std::unique_ptr<AffHypPlane<2> > divAxis() const;
+
+    //! Compute the parameter t (0<=t<=1) at which the segment (1-t)p0 + t p1 intersects with the curve.
+    std::vector<double> intersectParams(Eigen::Vector2d const &p0, Eigen::Vector2d const &p1);
+
+    //! Compute the parameter t (0<=t<=1) at which the segment (1-t)(x0,y0)+t(x1,y1) intersects with the curve.
     std::vector<double> intersectParams(double x0, double y0, double x1, double y1)
     {
         return intersectParams(Eigen::Vector2d(x0,y0), Eigen::Vector2d(x1,y1));
     }
+
+    //! Approximate the intersection with a given triangle by cubic Bezier curves.
+    //! \param p The array of vertices that span a triangle.
+    //! \return The set of Bezier curves each of which approximates a connected component of the intersection.
+    auto onTriangle(std::array<Eigen::Vector2d,3> const& p)
+        -> std::vector<Bezier<Eigen::Vector2d,3> >;
 };

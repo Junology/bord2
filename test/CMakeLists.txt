@@ -11,8 +11,12 @@ if(GTEST_FOUND)
 
   add_executable(${PROJECT_NAME_TEST}
 	test_utils.cpp
-	test_math.cpp
-	${CMAKE_SOURCE_DIR}/src/math/funcs.cpp)
+	test_solvers.cpp
+	test_affhyp.cpp
+	test_bezier.cpp
+	test_quadcurve.cpp
+	${CMAKE_SOURCE_DIR}/src/math/AffHypPlane.cpp
+	${CMAKE_SOURCE_DIR}/src/math/QuadraticCurve.cpp)
 
   target_compile_options(${PROJECT_NAME_TEST} PUBLIC -O0 -g -Wall)
 

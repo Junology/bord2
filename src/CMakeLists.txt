@@ -6,7 +6,9 @@ add_executable(
   MainFrame.cpp
   MainDrawPane.cpp
   WxGSScheme.cpp
-  math/funcs.cpp
+#  math/funcs.cpp
+  math/AffHypPlane.cpp
+  math/QuadraticCurve.cpp
 )
 
 target_link_libraries(

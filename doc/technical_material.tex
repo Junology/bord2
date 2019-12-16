@@ -2,6 +2,8 @@
 
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{mathtools}
+\usepackage{hyperref}
+\usepackage[capitalise]{cleveref}
 \usepackage{tikz}
 \usetikzlibrary{cd}
 \usepackage{algpseudocode}
@@ -34,6 +36,262 @@
 \maketitle
 
 In this note, we explain some technical materials used in the codes.
+
+\tableofcontents
+
+\section{On the second fundamental forms}
+
+\subsection{Definition}
+
+\begin{definition}
+Let $M$ be an orientable $n$-dimensional manifold embedded in the Euclidean space $\mathbb R^{n+1}$.
+Then, a \emph{normal vector field} is a section $\mathbf n$ of the vector bundle $\left.T\mathbb R^{n+1}\right|_M\to M$ such that, for each $p\in M$, we have
+\begin{equation}
+\label{eq:normal-vf}
+T\mathbb R^{n+1}= T_pM\oplus \mathbb R\mathbf n(p)
+\quad.
+\end{equation}
+We in addition say that $\mathbf n$ is positive provided the identity \eqref{eq:normal-vf} respects the orientation.
+\end{definition}
+
+Note that every $M$ as in the definition above admits a unique normal vector field of constant length $1$; indeed, the standard metrin con $\mathbb R^{n+1}$ and the orientation on $M$ determine a splitting of the following short exact sequence of vector bundles:
+\[
+0\to TM\to \left.T\mathbb R^{n+1}\right|_M \to \nu M\to 0
+\quad,
+\]
+where $\nu M$ is the normal bundle of the embedding $M\hookrightarrow\mathbb R^{n+1}$.
+On the other hand, since $M$ is orientable, the bundle $\nu M$ is orientable and hence a trivial bundle.
+Thus, one can choose a nowhere-vanishing section $s:M\to \nu M$, and a unit normal vector field $\mathbf n$ is obtained by normalizing $s$; here is only one choice of $\mathbf n$ so that it is positive.
+
+In the case above, let us denote by $S\mathbb R^{n+1}$ the unit sphere bundle associated to the tangent bundle $\mathbb R^{n+1}$; hence, if $\mathbf n$ is a positive normal vector field on $M$, then the assignment
+\[
+M \to S\mathbb R^{n+1}
+\ ;\quad p\mapsto \frac{\mathbf n(p)}{\|\mathbf n(p)\|}
+\]
+defines a section of the bundle $\left. S\mathbb R^{n+1}\right|_M\to M$.
+Since $S\mathbb R^{n+1}$ has a canonical trivialization, this gives rise to a smooth map $\nu:M\to S^n$, which we call the \emph{Gauss map}.
+
+\begin{definition}
+Let $\nu$ be the Gauss map on $M$.
+Then, the \emph{second fundamental form} is the bilinear form
+\[
+\mathbf{II}_M:TM\otimes_M TM\to\underline{\mathbb R}_M
+\]
+given by
+\[
+\mathbf{II}_M(v,w)
+\coloneqq -\langle d\nu(v),w\rangle
+\quad.
+\]
+\end{definition}
+
+\begin{example}
+In case $n=1$, let $\gamma=(\gamma_1,\gamma_2):(-\varepsilon,\varepsilon)\to M\subset\mathbb R^2$ be a regular curve which gives a coordinate around a point $\gamma(0)=p\in M$.
+Then, we have a positive normal vector field on the coordinate given by
+\[
+\gamma^\perp(t)\coloneqq \left(-\frac{d\gamma_2}{dt}(t),\frac{d\gamma_1}{dt}(t)\right)
+\quad.
+\]
+In particular, if $\gamma$ is parametrized by arc-length, $\gamma^\perp$ gives the Gauss map as $\nu\gamma=\gamma^\perp$.
+It follows that
+\[
+d\nu\left(\frac{d\gamma}{dt}(0)\right)
+= \frac{d\gamma^\perp}{dt}(0)
+= \left(-\frac{d^2\gamma_2}{dt^2}(0),\frac{d^2\gamma_1}{dt^2}(0)\right)
+\]
+and the second fundamental form is determined by the equation
+\[
+\mathbf{II}_\gamma\left(\frac{d\gamma}{dt}(0),\frac{d\gamma}{dt}(0)\right)
+= \frac{d^2\gamma_2}{dt^2}(0)\frac{d\gamma_1}{dt}(0) - \frac{d^2\gamma_1}{dt^2}(0)\frac{d\gamma_2}{dt}(0)
+= \left\langle \frac{d^2\gamma}{dt^2}(0), \gamma^\perp(0)\right\rangle
+\quad.
+\]
+Note that, since $\gamma$ has a constant velocity, namely $\|d\gamma/dt\|\equiv1$, the vector $d^2\gamma/dt^2(0)$ is parallel to $\gamma^\perp$.
+Hence, we have
+\[
+\mathbf{II}_\gamma\left(\frac{d\gamma}{dt}(0),\frac{d\gamma}{dt}(0)\right)\cdot\gamma^\perp(0)
+= \frac{d^2\gamma}{dt^2}(0)
+\quad,
+\]
+which is exactly the curvature vector of the curve $\gamma$.
+\end{example}
+
+\subsection{Formula for the regular level sets}
+
+We now compute the second fundamental form for the regular level set of a function.
+Let $f:\mathbb R^{n+1}\to\mathbb R$ be a smooth function with $0\in\mathbb R$ as a regular value.
+We compute the second fundamental form on the submanifold
+\[
+M\coloneqq\{x\in\mathbb R^{n+1}\mid f(x)=0\}
+\quad.
+\]
+It directly follows from the definition that the following is an exact sequence of vector bundles over $M$:
+\[
+0\to TM\hookrightarrow \left.T\mathbb R^{n+1}\right|_M \xrightarrow{df} \underline{\mathbb R}_M\to 0
+\quad,
+\]
+where $\underline{\mathbb R}_M$ is the trivial bundle with fiber $\mathbb R$.
+In other words, a vector $a_0\frac\partial{\partial x_0}+\dots+a_n\frac\partial{\partial x_n}$ on $\mathbb R^{n+1}$ is tangent to $M$ if and only if the vector
+\begin{equation}
+\label{eq:df-normal}
+df\left(\sum_{i=0}^n a_i\frac\partial{\partial x_i}\right)
+= \sum_{i=0}^n a_i\frac{\partial f}{\partial x_i}
+\end{equation}
+vanishes.
+This implies that, for each $\vec x=(x_0,\dots,x_n)\in M$, the vector
+\[
+df^\ast(\vec x)
+\coloneqq \left(\frac{\partial f}{\partial x_0}(\vec x),\dots,\frac{\partial f}{\partial x_n}(\vec x)\right)
+\]
+is normal to $M$.
+We endow $M$ with the orientation so that $\mathbf n_f$ is positive.
+Then, for the Gauss map $\nu$, we have
+\begin{equation}
+\label{eq:f-Gauss}
+d_{\vec x}\nu\left(\sum_{i=0}^n a_i\frac\partial{\partial x_i}\right)
+= \sum_{i=0}^n a_i \left.\frac{\partial}{\partial x_i}\right|_{\vec x} \frac{df^\ast}{\|df^\ast\|}
+\quad.
+\end{equation}
+Note that the equation \eqref{eq:df-normal} implies that
+\begin{equation}
+\label{eq:diff-normrec}
+\begin{split}
+\sum_{i=0}^n a_i\left.\frac{\partial}{\partial x_i}\right|_{\vec x}
+\frac1{\|df^\ast\|}
+&= \sum_{i=0}^n a_i\left.\frac{\partial}{\partial x_i}\right|_{\vec x}\left(\sum_{j=0}^n\left(\frac{\partial f}{\partial x_j}\right)^2\right)^{-1/2} \\
+& = -\frac1{2\|df^\ast(\vec x)\|^3} \sum_{i=0}^n\sum_{j=0}^n 2a_i\frac{\partial f}{\partial x_j}(\vec x)\frac{\partial^2f}{\partial x_i\partial x_j}(\vec x) \\
+& = -\frac1{\|df^\ast(\vec x)\|^3}\sum_{j=0}^n \frac{\partial f}{\partial x_j}(\vec x)\left.\frac{\partial}{\partial x_j}\right|_{\vec x} \sum_{i=0}^n a_i\frac{\partial f}{\partial x_i} \\
+& = 0
+\quad.
+\end{split}
+\end{equation}
+Combining \eqref{eq:f-Gauss} and \eqref{eq:diff-normrec}, we obtain
+\begin{equation}
+\label{eq:f-II-form}
+\mathbf{II}_{\{f=0\}}\left(\sum_{i=0}^na_i\frac{\partial}{\partial x_i},\sum_{j=0}^nb_j\frac\partial{\partial x_j}\right)
+= -\frac{1}{\|df^\ast\|}\sum_{i=0}^n\sum_{j=0}^n a_ib_j\frac{\partial^2f }{\partial x_i\partial x_j}
+\quad.
+\end{equation}
+If we denote by $H_f$ the Hessian matrix, then the bilinear form $\mathbf{II}_{\{f=0\}}$ is represented by the matrix $H_f/\|df^\ast\|$.
+
+\begin{example}
+\label{ex:II-on-circle}
+For a positive real number $r$, define $f:\mathbb R^2\to\mathbb R$ by
+\begin{equation}
+\label{eq:circle-deffun}
+f(x,y)\coloneqq x^2+y^2-r^2
+\quad.
+\end{equation}
+Put $C\coloneqq\{f=0\}$ the zero-set; i.e. the circle of radius $r$.
+For each $(x,y)\in C$, we have
+\[
+df^\ast(x,y) = (2x,2y)
+\ ,\quad
+\|df^\ast(x,y)\| = \sqrt{4x^2 + 4y^2} = 2r
+\quad.
+\]
+On the other hand, $C$ is parametrized by the map
+\[
+\gamma:\mathbb R\to C
+\ ;\quad \theta\mapsto \left(r\cos\frac\theta{r},r\sin\frac\theta{r}\right)
+\]
+so that $\|d\gamma/d\theta\|\equiv 1$.
+We have
+\[
+\mathbf{II}_C\left(\frac{d\gamma}{dt}(\theta),\frac{d\gamma}{dt}(\theta)\right)
+= \frac1{2r}\left(2\left(-\sin\frac\theta{r}\right)^2 + 2\left(\cos\frac\theta{r}\right)^2\right) = \frac1{r}
+\quad.
+\]
+Note that the vector
+\begin{equation}
+\label{eq:II-curvature}
+\mathbf{II}_C\left(\frac{d\gamma}{dt}(\theta),\frac{d\gamma}{dt}(\theta)\right)\cdot \frac{df^\ast}{\|df^\ast\|}
+= -\frac{1}{r^2}\gamma(\theta)
+\end{equation}
+equals the curvature vector of $C$.
+\end{example}
+
+\begin{remark}
+If a codimension $1$ submanifold $M\subset\mathbb R^{n+1}$ is defined as a zero-set of a function $f$, then the orientation on $M$ does depend on $f$.
+For example, to define the same submanifold $C$ as in \cref{ex:II-on-circle}, one can take a function $g:\mathbb R^2\to\mathbb R^2$ given by
+\[
+g(x,y)\coloneqq -x^2-y^2+r^2
+\]
+instead of $f$ in \eqref{eq:circle-deffun}.
+Then, the induced orientation on $C$ is reversed; so we have
+\[
+\mathbf{II}_{\{g=0\}}\left(\frac{d\gamma}{dt}(\theta),\frac{d\gamma}{dt}(\theta)\right)
+= -\frac1{r}
+\quad.
+\]
+In contrast, since $df^\ast = -dg^\ast$, the curvature vector \eqref{eq:II-curvature} is invariant of the choice of the defining function.
+\end{remark}
+
+More generally, we have the following result in the $2$-dimensional cases.
+
+\begin{proposition}
+\label{prop:f-curvature}
+Let $f:\mathbb R^2\to\mathbb R$ be a smooth function with $0\in\mathbb R$ being a regular value; put $C\coloneqq\{(x,y)\mid f(x,y)=0\}$.
+Then, the curvature vector $\kappa$ of $C$ is, as a function on $C$, given by
+\[
+\kappa
+= -\left(
+\left(\frac{\partial f}{\partial y}\right)^2\frac{\partial^2 f}{\partial x^2}
+-2\frac{\partial f}{\partial x}\frac{\partial f}{\partial y}\frac{\partial^2 f}{\partial x\partial y}
++\left(\frac{\partial f}{\partial x}\right)^2\frac{\partial^2 f}{\partial y^2}
+\right)\cdot
+\frac{df^\ast}{\|df^\ast\|^4}
+\]
+\end{proposition}
+\begin{proof}
+We set
+\[
+df^\perp(x,y)
+\coloneqq \left(-\frac{\partial f}{\partial y}(x,y), \frac{\partial f}{\partial x}(x,y)\right)
+\quad.
+\]
+It is easily verify that, if $(x,y)\in C$, then $df^\perp(x,y)$ is a tangent vector at $(x,y)$.
+We also have $\|df^\perp(x,y)\|=\|df^\ast(x,y)\|$.
+Hence, using the formula \eqref{eq:f-II-form}, we obtain
+\[
+\begin{split}
+\kappa
+&= -\mathbf{II}_C\left(\frac{df^\perp}{\|df^\perp\|},\frac{df^\perp}{\|df^\perp\|}\right)\cdot\frac{df^\ast}{\|df^\ast\|} \\
+&= -\left(
+\left(\frac{\partial f}{\partial y}\right)^2\frac{\partial^2 f}{\partial x^2}
+-2\frac{\partial f}{\partial x}\frac{\partial f}{\partial y}\frac{\partial^2 f}{\partial x\partial y}
++\left(\frac{\partial f}{\partial x}\right)^2\frac{\partial^2 f}{\partial y^2}
+\right)\cdot
+\frac{df^\ast}{\|df^\ast\|^4}
+\quad.
+\end{split}
+\]
+\end{proof}
+
+\begin{example}
+Let $f:\mathbb R^2\to\mathbb R$ be a quadratic function of the form
+\[
+f(x,y)=ax^2+by^2-c
+\]
+with $ab\neq 0$ and $c\neq 0$.
+Then,
+\[
+df^\ast(x,y) = (2ax, 2by)
+\ ,\quad
+\|df^\ast(x,y)\| = 2\sqrt{a^2x^2+b^2y^2}
+\quad;
+\]
+so in particular, $0\in\mathbb R$ is a regular value of $f$.
+By virtue of \cref{prop:f-curvature}, we obtain
+\[
+\kappa(x,y)
+= -\frac{8ab^2y^2+8a^2bx^2}{16(a^2x^2+b^2y^2)^2}(2ax,2by)
+= -\frac{abc}{(a^2x^2+b^2y^2)^2}(ax,by)
+\quad.
+\]
+For example, if $a=b=1$ and $c=r^2$, this agrees with the computation in \cref{ex:II-on-circle}.
+\end{example}
+
 
 \section{Quadratic B\'ezier triangles}
 \label{sec:qbezier}
@@ -159,7 +417,7 @@ Note that, if $\dim V=n$, then $V\wedge V$ is of dimension $n(n-1)/2$; so we hav
 In particular, there is generically no critical point of $p$ except in the case $n=2$ where they form a $1$-dimensional submanifold of $\Delta^2$.
 
 
-\section{Rendering quadratic curves by B\'ezier curves}
+\section{On quadratic curves}
 
 \subsection{Definition}
 
@@ -272,6 +530,245 @@ It is easily seen that a quadratic form actually defines an algebraic function o
 One may sometimes use the word ``quadratic curves'' to refer algebraic subsets of the projective space $\mathbb P^2$ defined by quadratic forms of three variables.
 In such cases, ``quadratic curves'' are always compact while ours might not.
 \end{remark}
+
+\subsection{The srandard forms}
+
+\begin{proposition}
+\label{prop:quad-standard}
+Let $q$ be a quadratic form on $\mathbb R^n$ with matrices $M_q$ and $M'_q$ as in the previous section.
+Suppose both the determinants $\det M_q$ and $\det M_q$ are non-zero.
+Then, there is an orthogonal matrix $P\in\mathcal O(n-1)$ such that
+\begin{gather}
+\label{eq:M'-diag}
+M'_q = P
+\begin{bmatrix}
+\lambda_1 && O \\
+& \ddots & \\
+O && \lambda_{n-1}
+\end{bmatrix}
+P^{\mathsf T}
+\qquad\text{with $\lambda_i\in\mathbb R$}
+\quad;
+\\
+\label{eq:q-standard}
+q(y_1,\dots,y_{n-1},1)
+= \sum_{i=1}^{n-1} \lambda_i\left(Y_i+\frac{\widetilde B_{i n}}{\lambda_i}\right)^2 + \frac{\det M_q}{\det M'_q}
+\quad,
+\end{gather}
+where
+\[
+\begin{bmatrix}
+Y_1\\\vdots\\ Y_{n-1}
+\end{bmatrix}
+\coloneqq P^{\mathsf T}
+\begin{bmatrix}
+y_1\\\vdots\\ y_{n-1}
+\end{bmatrix}
+\quad, \qquad
+\begin{bmatrix}
+\widetilde B_{1n} \\ \vdots \\ \widetilde B_{(n-1)n}
+\end{bmatrix}
+\coloneqq P^{\mathsf T}
+\begin{bmatrix}
+B_{1n} \\ \vdots \\ B_{(n-1)n}
+\end{bmatrix}
+\]
+\end{proposition}
+\begin{proof}
+Since $M'_q$ is a symmetric matrix, we can take an orthogonal matrix $P$ satisfying \eqref{eq:M'-diag}.
+Then, we have
+\[
+\begin{split}
+& q(y_1,\dots,y_{n-1},1) \\
+&=
+\begin{bmatrix}
+y_1 & \cdots & y_{n-1} & 1
+\end{bmatrix}
+\left[
+\begin{array}{c|c}
+  P
+  \begin{bmatrix}
+  \lambda_1 && \\
+  & \ddots & \\
+  && \lambda_{n=1}
+  \end{bmatrix}
+     P^{\mathsf T}
+  &
+    \begin{matrix}
+    B_{1n} \\ \vdots \\ B_{(n-1)n}
+    \end{matrix}
+  \\\hline
+  \begin{matrix}
+  B_{1n} & \cdots & B_{(n-1)n}
+  \end{matrix}
+      & A_n
+\end{array}
+\right]
+\begin{bmatrix}
+y_1 \\ \vdots \\ y_{n-1} \\ 1
+\end{bmatrix}
+\\
+&=
+\begin{bmatrix}
+Y_1 & \cdots & Y_{n-1} & 1
+\end{bmatrix}
+\left[
+\begin{array}{c|c}
+  \begin{matrix}
+  \lambda_1 && \\ & \ddots & \\ && \lambda_{n-1}
+  \end{matrix}
+             & P^{\mathsf T}
+               \begin{bmatrix}
+               B_{1n} \\ \vdots \\ B_{(n-1)n}
+               \end{bmatrix}
+  \\\hline
+  \begin{bmatrix}
+  B_{1n} & \cdots & B_{(n-1)n}
+  \end{bmatrix} P
+                 & A_n
+\end{array}
+\right]
+\begin{bmatrix}
+Y_1 \\ \vdots \\ Y_{n-1} \\ 1
+\end{bmatrix}
+\\
+&= 
+\begin{bmatrix}
+Y_1 & \cdots & Y_{n-1} & 1
+\end{bmatrix}
+\begin{bmatrix}
+\lambda_1  && &\widetilde B_{1n} \\
+& \ddots && \vdots \\
+&& \lambda_{n-1} & \widetilde B_{(n-1)n} \\
+\widetilde B_{1n} & \cdots & \widetilde B_{(n-1)n} & A_n
+\end{bmatrix}
+\begin{bmatrix}
+Y_1 \\ \vdots \\ Y_{n-1} \\ 1
+\end{bmatrix}
+\\
+&= \sum_{i=1}^{n-1} (\lambda_i Y_i^2 + 2\widetilde B_{in}Y_i) + A_n
+\\
+\end{split}
+\]
+We denote by $\widetilde M_q$ the middle matrix in the fourth line.
+Then, we have $\det M_q = \det \widetilde M_q$ and $\det M'_q =\lambda_1\dots\lambda_{n-1}$.
+The asumption $\det M'_q=0$ guarantees that all of $\lambda_i$'s are non-zero.
+Hence, we obtain
+\[
+\begin{split}
+q(y_1,\dots,y_{n-1},1)
+&= \sum_{i=1}^{n-1} \lambda_i\left(Y_i + \frac{\widetilde B_{in}}{\lambda_i}\right)^2
++ A_n-\sum_{i=1}^{n-1}\frac{B_{in}^2}{\lambda_i} \\
+&= \sum_{i=1}^{n-1} \lambda_i\left(Y_i + \frac{\widetilde B_{in}}{\lambda_i}\right)^2 + \frac{\det M_q}{\det M'_q}
+\end{split}
+\]
+as required.
+\end{proof}
+
+\begin{corollary}
+Let $q$ be a quadratic form on $\mathbb R^n$ with $\det M_q\neq 0$ and $\det M'_q\neq 0$.
+Set $\Lambda_-\subset\mathbb R$ the set of those eigen values of $M'_q$ which have different signs from the number $(\det M_q)/(\det M'_q)$, and for each $\lambda\in\Lambda_-$, fix an eigenvector $v_\lambda\in\mathbb R^{n-1}$ of $M'_q$ associated to $\lambda$.
+We define an affine subspace $H\subset\mathbb R^{n-1}$ by
+\[
+H
+\coloneqq\left\{
+\vec y\in\mathbb R^{n-1}\mid \forall\lambda\in\Lambda_-:\langle v_\lambda,M'_q\vec y+\vec B_n\rangle=0
+\right\}
+\quad,
+\]
+where $\vec B_n \coloneqq (B_{11},\dots,B_{(n-1)n})$.
+Then, we have
+\[
+H\cap\{(y_1,\dots,y_{n-1})\in\mathbb R^{n-1}\mid q(y_1,\dots,y_{n-1},1)=0\}
+= \varnothing
+\quad.
+\]
+\end{corollary}
+\begin{proof}
+Let $\lambda_1\le\dots\lambda_{n-1}$ be the eigen values of $M'_q$ and $v^{(1)},\dots,v^{(n-1)}\in\mathbb R^{n-1}$ associated unit eigenvectors which are mutually orthogonal.
+Then, the matrix $M'_q$ is diagonalized by the orthogonal matrix
+\[
+P =
+\begin{bmatrix}
+v^{(1)} & \cdots & v^{(n-1)}
+\end{bmatrix}
+\quad.
+\]
+Set $Y_i$ and $\widetilde B_i$ as in \cref{prop:quad-standard}, so we have
+\[
+Y_i = \langle v^{(i)},\vec y\rangle
+\ ,\quad \widetilde B_i = \langle v^{(i)},\vec B_n\rangle
+\]
+and hence
+\[
+\langle v^{(i)},M'_q\vec y + \vec B_n\rangle
+= \langle M'_q v^{(i)},\vec y\rangle + \langle v^{(i)},\vec B_n\rangle
+= \lambda_i Y_i + \widetilde B_n
+\quad.
+\]
+It follows that, if $\vec y\in H$, then all the terms in the sum \eqref{eq:q-standard} have the same sign, which implies the result.
+\end{proof}
+
+\begin{example}
+Define $q:\mathbb R^3\to\mathbb R$ by
+\[
+q(x,y,z)
+\coloneqq 2(x-z)(y-z) - 2z^2 = 2xy - 2xz - 2yz
+\quad.
+\]
+The associated matrices are given by
+\[
+M_q =
+\begin{bmatrix}
+0 & 1 & -1 \\
+1 & 0 & -1 \\
+-1 & -1 & 0
+\end{bmatrix}
+\quad,\qquad
+M'_q =
+\begin{bmatrix}
+0 & 1 \\ 1 & 0
+\end{bmatrix}
+\quad.
+\]
+It turns out that the eigenvalues of $M'_q$ are $1$ and $-1$ for which associated eigenvectors are given by
+\[
+v_\pm =
+\begin{bmatrix}
+1 \\ \pm 1
+\end{bmatrix}
+\quad.
+\]
+We also have
+\[
+\det M_q = 2
+\ ,\quad
+\det M'_q = -1
+\quad.
+\]
+Now, we set
+\[
+\begin{split}
+H
+&\coloneqq\left\{
+(x,y)\in\mathbb R^2
+\;\middle|\;
+\left\langle v_+,M'_q\begin{bmatrix} x \\ y \end{bmatrix} + \begin{bmatrix} -1 \\ -1 \end{bmatrix}\right\rangle
+\right\}
+\\
+&= \left\{
+(x,y)\in\mathbb R^2
+\;\middle|\;
+x+y-2 = 0
+\right\}
+\end{split}
+\quad,
+\]
+then $H$ does not intersect to the zero-set $\{(x,y)\mid q(x,y,1)=0\}$, which is a hyperbolic curve.
+\end{example}
+
+Note that the equation $q(\vec y,1)=0$ is invariant under reflections along the eigenvectors of $M'_q$.
+In particular, if $H$ is of codimension $1$, then it divides the zero-set into two connected components.
 
 \subsection{Intersections with segments}
 

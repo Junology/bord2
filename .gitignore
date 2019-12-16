@@ -35,6 +35,7 @@
 build/*
 
 # Misc
+compile_commands.json
 *~
 \#*\#
 .\#*
