@@ -1,12 +1,16 @@
 \documentclass[pdftex,a4paper,12pt]{scrartcl}
 
+\usepackage[T1]{fontenc}
+\usepackage{lmodern} % Latin Modern font
+
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{mathtools}
+\usepackage{enumitem}
 \usepackage{hyperref}
 \usepackage[capitalise]{cleveref}
 \usepackage{tikz}
 \usetikzlibrary{cd}
-\usepackage{algpseudocode}
+%\usepackage{algpseudocode}
 
 %%%
 %%% THEOREM ENVIRONMENTS (amsthm.sty)
@@ -18,12 +22,15 @@
 \newtheorem{lemma}[theorem]{Lemma}
 
 \theoremstyle{definition}
-\newtheorem*{definition}{Definition}
+\newtheorem{definition}{Definition}
+\newtheorem{problem}{Problem}
 
 \theoremstyle{remark}
 \newtheorem{example}[theorem]{Example}
 \newtheorem{remark}[theorem]{Remark}
 \newtheorem*{notation}{Notation}
+
+\numberwithin{equation}{section}
 
 %%%
 %%% Article data
@@ -294,7 +301,7 @@ For example, if $a=b=1$ and $c=r^2$, this agrees with the computation in \cref{e
 
 
 \section{Quadratic B\'ezier triangles}
-\label{sec:qbezier}
+\label{sec:qbeztri}
 
 \subsection{Definition}
 
@@ -349,6 +356,7 @@ In this point of view, we have
 \end{proof}
 
 \subsection{Tangent space}
+\label{sec:Beztri:tangent}
 
 We compute the tangent spaces of quadratic B\'ezier triangles.
 We fix a quadratic B\'ezier triangle $p:\Delta^2\to V$ with control points $v^{(0)},v^{(1)},v^{(2)},e^{(0)},e^{(1)},e^{(2)}\in V$.
@@ -388,6 +396,7 @@ p_\ast(X^{ij})
 \end{equation}
 
 \subsection{Singular loci}
+\label{sec:Beztri:sing}
 
 We are interested in the singular locus of a quadratic B\'ezier triangle $p:\Delta^2\to V$ for $\dim V\ge 2$.
 In view of the previous section, a point $\vec t=(t_0,t_1,t_2)\in\Delta^2$ is a critical point of $p$ if and only if two vectors $p_\ast(X^{ij})$ and $p_\ast(X^{ik})$ are in parallel for $\{i,j,k\}=\{0,1,2\}$.
@@ -768,7 +777,7 @@ then $H$ does not intersect to the zero-set $\{(x,y)\mid q(x,y,1)=0\}$, which is
 \end{example}
 
 Note that the equation $q(\vec y,1)=0$ is invariant under reflections along the eigenvectors of $M'_q$.
-In particular, if $H$ is of codimension $1$, then it divides the zero-set into two connected components.
+In particular, if $H$ is of codimension $1$, then it separates the two connected components of the zero-set.
 
 \subsection{Intersections with segments}
 
@@ -817,62 +826,118 @@ On the other hand, we have
 Thus, combining with the equation \eqref{eq:prf:fq-diff}, one obtains the result.
 \end{proof}
 
-\subsection{Algorithm}
 
-Fix a quadratic form $q(x,y,z)$ on $\mathbb R^3$.
-In this section, we discuss an algorithm rendering the quadratic curve $C=\{(x,y)\mid q(x,y,1)=0\}$ with quadratic B\'ezier curvees.
-The following is a pseudo-code for our approach:
-\begin{algorithmic}[1]
-\Procedure{Render-Quad-Curve}{$q$:\:quadratic form, $X$:\:canvas}
-\State $T\gets$ sufficiently fine triangualation of $X$
-\ForAll{$\Delta\in T$}
-\State $S\gets$ \Call{Segments}{$q$,$\Delta$}
-\ForAll{$(v,w)\in S$}
-\State $c\gets \operatorname{solve}(d_vq(x-v)=d_wq(x-w)=0)$
-\State $\operatorname{qbezier}(v,c,w)$
-\EndFor
-\EndFor
-\EndProcedure
-\end{algorithmic}
-In the function \textsc{Segments}, we compute the pairs $(v,w)$ such that
+\section{Rendering ridgelines of quadratic B\'ezier triangles}
+
+\subsection{Problem}
+
+Suppose we are given a quadratic B\'ezier triangle $u:\Delta^2\to\mathbb R^3$ in the $3$-dimensional Euclidean space.
+The main problem in the section is the following.
+
+\begin{problem}
+For a given surjective $\mathbb R$-linear map $P:\mathbb R^3\to\mathbb R^2$, render the boundary of the image $Pu(\Delta^2)\subset\mathbb R^2$.
+\end{problem}
+
+Note that, since the composition $Pu$ is again a B\'ezier triangle, it is easy to render the images of the image$Pu(\partial\Delta^2)$.
+On the other hand, the boundary $Pu(\Delta^2)$ may contain points coming from the interior of $\Delta^2$.
+In fact, they are critical values of the map $Pu$; they form a closed subset of $\mathbb R^2$ whose connected components we call the \emph{ridgelines} of the B\'ezier triangle $Pu$.
+This observation shows that the boundary of $Pu(\Delta^2)$ is contained in the union of following materials:
 \begin{itemize}
-  \item $v,w\in\partial\Delta\cap\{f_q=0\}$;
-  \item $v$ and $w$ belong to the same connected component of $\Delta\cap\{f_q=0\}$.
+  \item the B\'ezier curves $\left.Pu\right|_{\partial_i\Delta^2}$ for $i=0,1,2$;
+  \item the ridgelines.
 \end{itemize}
-We implement it as follows.
-Note that, for two totally ordered sets $P$ and $Q$, we denote by $P\star Q$ the join of them.
-\begin{algorithmic}[1]
-\Procedure{Segments}{$q$:\:quadratic form, $\Delta$:\:$2$-dim.~polygon}
-\State $I\gets\varnothing$ as a totally ordered set
-\ForAll{$v\in\operatorname{Vertex}(\Delta)$}
-\If{$q(v)=0$}
-\State $I\gets I\star\{v\}$
-\EndIf
-\EndFor
-\ForAll{$e\in\operatorname{Edge}(\Delta)$}
-\State $I\gets I\star(\operatorname{Interior}(e)\cap \{f_q=0\})$
-\EndFor
-\State \Return \Call{Pairs}{$q$, $I$}
-\EndProcedure
+Since the former is obvious, we discuss the second in the following subsections.
 
-\Procedure{Pairs}{$q$:\:a quadratic form, $I$:\:a set of points in $\{f_q=0\}$}
-\If{$\#I\le 1$}
-\Comment{Nothing can form a pair}
-\State \Return $\varnothing$
-\ElsIf{$\#I=2$}
-\Comment{A connected pair is found}
-\State Let $\{(v,w)\}\gets I$
-\State \Return $\{(v,w)\}$
-\EndIf
-\State $v\gets\operatorname{Head}(I)$
-\Comment{Fix a reference point}
-\State $I_+\gets \{w\in I\mid d_vq(w-v)>0\}$
-\Comment{the subset of points lying on the ``right'' of $v$}
-\State $I_-\gets \{w\in I\mid d_vq(w-v)<0\}$
-\Comment{the subset of points lying on the ``left'' of $v$}
-\State \Return \Call{Pairs}{$q$, $I_+\star\{v\}$} $\cup$ \Call{Pairs}{$q$, $I_-\star\{v\}$}
-\Comment{Make pairs on the left and the right respectively}
-\EndProcedure
-\end{algorithmic}
+\subsection{Ridgelines and quadratic curves}
+
+As a result of \cref{sec:Beztri:sing}, the critical locus of a B\'ezier triangle in $\mathbb R^2$ is defined by a quadratic function.
+Hence, since ridgelines are images of critical loci, the problem is now reduced to the following more general one.
+
+\begin{problem}
+Let $f:\mathbb R^2\to\mathbb R$ be a quadratic function.
+Given triangle $T\subset\mathbb R^2$, render the subset
+\[
+T\cap\{(x,y)\mid f(x,y)=0\}\subset T
+\quad.
+\]
+\end{problem}
+
+In other words, we want to render the intersection of a triangle with a quadratic curve.
+We concentrate on the case where $0\in\mathbb R$ is a regular value of the quadratic function $f$.
+We write $C\coloneqq \{f=0\}$, which is a $1$-dimensional submanifold of $\mathbb R$.
+We render $T\cap C$ in the following steps.
+\begin{enumerate}[label=\underline{\textit{Step~\arabic*}}:\:,leftmargin=\widthof{\itshape Step00:}]
+  \item Compute the subset $S\subset \partial T\cap C$ of points $c\in\partial T\cap C$ such that
+\begin{itemize}
+  \item $C$ intersects to an edge of $T$ at $c$ transversely;
+  \item in case where $c$ is a vertex of $T$, the tangent line of $C$ at $c$ either contains an edge of $T$ or separates the other two vertices.
+\end{itemize}
+  \item Divide $S$ into pairs $\{c_1,c_2\}$ so that $c_1$ and $c_2$ belong to the same connected component of $T\cap C$.
+  \item For each pair $\{c_1,c_2\}$, render the curves connecting $c_1$ and $c_2$.
+\end{enumerate}
+
+The first and the last steps are obvious.
+To achieve the second, we can make use of the following results.
+
+\begin{lemma}
+\label{lem:S-bndry}
+There is a $1$-dimensional submanifold $C'\subset T$ such that $S= \partial C'$.
+Consequently, the number of elements in the subset $S\subset\partial T\cap C$ is even and at most six.
+\end{lemma}
+\begin{proof}
+It is seen that the intersection $T\cap C$ consists of a submanifold $C'\subset T$ together with isolated points.
+We claim that $\partial C'=S$.
+It is obvious that $S\subset\partial C'$.
+Conversely, let $c\in \partial C'$; we hence have $c\in\partial T$ since $C$ has no boundary.
+If $c$ is a vertex of $T$, then it is clear that $c\in S$.
+On the other hand, suppose $c$ lies in the interior of an edge, say $e$, of $T$; hence $c$ belongs to the intersection of $C\cap \operatorname{int}e$.
+This implies that $c$ is specified by a quadratic equation so that $e$ is tangent to $C$ at $c$ if and only if the equation has a double root.
+It follows that the intersection is transverse as soon as $c\in\partial C'$.
+Thus, we also obtain $\partial C'\subset S$, so $\partial C'=S$.
+In particular, $S$ consists of even number of elements.
+Moreover, the above observation also shows that that each edge of $T$ has at most two intersections with $C$, so $\partial T\cap C$ and hence $S$ consist of at most six elements.
+\end{proof}
+
+\begin{lemma}
+\label{lem:comp-curve}
+For every pair $c_1,c_2\in S$, either of the following holds:
+\begin{enumerate}[label=\upshape(\roman*)]
+  \item if $v=c_2-c_1\in\mathbb R^2$, then $\langle\kappa(c_1),v\rangle > 0$, here $\kappa(c_1)$ is the curvature vector of $C$ at $c_1$;
+  \item the curve $C$ is a hyperbola, and $c_1$ and $c_2$ lie in the different components.
+\end{enumerate}
+\end{lemma}
+
+\begin{corollary}
+If $c_1,c_2\in S$ lie in the same component of $T\cap C$, then they are consequtive in $\partial T\cong S^1$.
+\end{corollary}
+\begin{proof}
+This follows from \cref{lem:S-bndry}, \cref{lem:comp-curve}, and the observation that $C'$ has no self-intersection.
+\end{proof}
+
+Now, fix a numbering on the vertices of $T$ to write $\{p_0,p_1,p_2\}$.
+We say an element $c\in S$ is \emph{positive} (resp. \emph{negative}) if it belongs to an edge spanned by $p_i$ and $p_{i+1}$ and transverse to $C$ at $c$ such that
+\[
+\langle\kappa(c),p_{i+1}-p_i\rangle > 0
+\quad\text{(resp. } \langle\kappa(c),p_{i+1}-p_i\rangle < 0\text{ )}
+\quad,
+\]
+here we use the cyclic indexing modulo $3$.
+Note that, even if $c=p_k$, the definition does not depend on the choice of the edge.
+Indeed, thanks to the definition of $S$, we have
+\[
+\langle\kappa(c),p_k-p_{k-1}\rangle\cdot\langle\kappa(c),p_{k+1}-p_k\rangle\ge 0
+\quad.
+\]
+On the other hand, we consider the cyclic ordering on $\partial T$ with $p_{i-1}<p_i<p_{i+1}$ and restrict it to $S$.
+For $c_1,c_2\in S$, we write $c_1\lessdot c_2$ if $c_2$ is the ``next'' element of $c_1$ in this cyclic order.
+
+\begin{lemma}
+For two elements $c_1,c_2\in S$, the following statements are all equivalent:
+\begin{enumerate}[label=\upshape(\alph*)]
+  \item $c_1$ and $c_2$ belong to the same connected component of $T\cap C$;
+  \item either $c_1\lessdot c_2$ with $c_1$ negative or $c_2\lessdot c_1$ with $c_2$ negative;
+  \item either $c_1\lessdot c_2$ with $c_2$ positive or $c_2\lessdot c_1$ with $c_1$ positive;
+\end{enumerate}
+\end{lemma}
 
 \end{document}

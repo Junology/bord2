@@ -35,8 +35,9 @@ inline constexpr T binSolve(T x0, T x1, F f)
     if (y1 == 0)
         return x1;
 
-    if (std::signbit(y0) == std::signbit(y1))
+    if (std::signbit(y0) == std::signbit(y1)) {
         return std::numeric_limits<T>::quiet_NaN();
+    }
 
     while(x0 != x1) {
         T mid = (x0+x1)*0.5;
@@ -93,12 +94,13 @@ inline constexpr T newton(T x, F f, G df)
             break;
 
         // When the sign of the value is changed, switch to the binary search.
-        if (y == -y1)
+        if (std::signbit(y) != std::signbit(y1))
             return binSolve(x,x1,std::forward<F>(f));
 
         // If the result gets worse, terminate with NaN;
-        if(std::abs(y1) > std::abs(y))
+        if(std::abs(y1) > std::abs(y)) {
             return std::numeric_limits<T>::quiet_NaN();
+        }
 
         x = x1;
         y = y1;
@@ -123,8 +125,9 @@ template <
 constexpr T solveLinear(T a, T b)
 {
     // floating point exception check
-    if (!std::isfinite(a) || !std::isfinite(b))
+    if (!std::isfinite(a) || !std::isfinite(b)) {
         return std::numeric_limits<T>::quiet_NaN();
+    }
 
     // trivial cases.
     if (a == 0) {

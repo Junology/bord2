@@ -8,10 +8,27 @@
 
 #include "QuadraticCurve.hpp"
 
-//#include <iostream> // For Debug
+// #include <iostream> // For Debug
 
 #include "solvers.hpp"
 
+/*************************
+ *** Utility functions ***
+ *************************/
+
+double cross2D(Eigen::Ref<Eigen::Vector2d> const &x, Eigen::Ref<Eigen::Vector2d> const &y)
+{
+    return x(0)*y(1)-x(1)*y(0);
+}
+
+double cross2D(Eigen::Vector2d &&x, Eigen::Vector2d &&y)
+{
+    return x(0)*y(1)-x(1)*y(0);
+}
+
+/*********************************************************
+ *** Implementation of members of QuadraticCurve class ***
+ *********************************************************/
 constexpr double QuadraticCurve::threshold;
 
 // Constructor
@@ -104,136 +121,141 @@ std::vector<double> QuadraticCurve::intersectParams(Eigen::Vector2d const &p0, E
     return std::move(result);
 }
 
-//! Approximate the intersection with a given triangle by quadratic Bezier curves.
-//! \param p The array of vertices that span a triangle.
-//! \return The set of Bezier curves each of which approximates a connected component of the intersection.
+/* Approximate the intersection with a given triangle by quadratic Bezier curves.
+ * \param p The array of vertices that span a triangle.
+ * \return The set of Bezier curves each of which approximates a connected component of the intersection.
+ */
 auto QuadraticCurve::onTriangle(std::array<Eigen::Vector2d,3> const& p)
-    -> std::vector<Bezier<Eigen::Vector2d,3> >
+    -> std::pair<std::vector<Bezier<Eigen::Vector2d,3> >,bool>
 {
-    // The variable where the intersections with the boundary of the triangle together with a vector directing the "inside of the triangle" will be stored.
-    std::vector<std::array<Eigen::Vector2d,2> > ends;
+    // If the triangle is extremely small, nothing to return;
+    if (std::abs(cross2D(p[1]-p[0], p[2]-p[0])) < QuadraticCurve::threshold)
+        return {std::vector<Bezier<Eigen::Vector2d,3> >(), false};
 
-    // Check if the vertices are solutions.
-    for(size_t i = 0; i < p.size(); ++i) {
-        if (QuadraticCurve::evaluate(p[i](0),p[i](1)) < QuadraticCurve::threshold) {
-            // We are interested only on the vertex such that the tangent line divides the other two vertices into different components.
-            auto tline = QuadraticCurve::tangent(p[i]);
-            if (std::signbit(tline.height(p[(i+1)%3])) != std::signbit(tline.height(p[(i+2)%3]))) {
-                Eigen::Vector2d vec = 0.5*(p[(i+1)%3]+p[(i+2)%3])-p[i];
-                ends.emplace_back(std::array<Eigen::Vector2d,2>{p[i], vec});
-            }
-        }
-    }
+    // The local struct to represent end points of the curve in the triangle.
+    struct EndType {
+        // The point.
+        Eigen::Vector2d pt;
+        // a vector toward the interior of the triangle.
+        Eigen::Vector2d toInn;
+        // The flag indicating wheather it is a positive end or not.
+        bool is_positive;
+    };
+
+    // The variable where the set of end points will be stored.
+    // The end points in different global connected components are distinguished.
+    std::array<std::vector<EndType>,2> ends;
 
     // Compute the intersections with edges of the triangle.
     for(size_t i = 0; i < p.size(); ++i)
     {
-        auto ts = QuadraticCurve::intersectParams(p[i%3], p[(i+1)%3]);
+        auto ts = QuadraticCurve::intersectParams(p[i], p[(i+1)%3]);
 
         if (ts.empty())
             continue;
 
-        // A vector normal to the segment between p[i] and p[(i+1)%3].
-        Eigen::Vector2d normal
-            = ((p[i]-p[(i+1)%3]).norm() < QuadraticCurve::threshold)
-            ? (p[(i+2)%3] - p[i])
-            : Eigen::Vector2d(
-                p[i](1) - p[(i+1)%3](1),
-                p[(i+1)%3](0) - p[i](0)
-                );
-
-        normal.normalize();
-
-        // For each intersection, add the pair of the associated point and the normal vector, directed inside the triangle, to the buffer.
+        // For each intersection, add the point provided it is either positive or negative.
         for(double t : ts) {
-            Eigen::Vector2d pt = (1-t)*p[i%3] + t*p[(i+1)%3];
-            Eigen::Vector2d vec
-                = normal * normal.adjoint() * (p[(i+2)%3] - pt);
-            ends.emplace_back(std::array<Eigen::Vector2d,2>{pt,vec});
+            Eigen::Vector2d v = p[(i+1)%3] - p[i];
+            Eigen::Vector2d pt = p[i] + t*v;
+            Eigen::Vector2d toInn
+                = (v.norm()*v.norm())*v*p[(i+2)%3].adjoint()*Eigen::Vector2d(-v(1),v(0));
+            Eigen::Vector2d kappa = QuadraticCurve::curvature(pt);
+            double inprod = kappa.adjoint() * v;
+
+            // If the curve has non-zero curvature and if the edge is tangent at pt, we skip.
+            if(std::abs(inprod) < kappa.norm()*QuadraticCurve::threshold)
+                continue;
+
+            // Otherwise, push it to the list of endpoints.
+            // Later, we will separate end points in different components.
+            ends[0].push_back({pt, toInn, !std::signbit(inprod)});
         }
     }
 
-    // Eliminate duplicates.
-    for(size_t i = 0; i < ends.size(); ++i) {
-        for(auto itr = std::next(ends.begin(),i); itr != ends.end(); ) {
-            if ((ends[i][0]-(*itr)[0]).norm() < QuadraticCurve::threshold) {
-                itr = ends.erase(itr);
+    // If the curve is hyperbolic, separate end points in different components.
+    if (std::signbit(m_M(0,0)*m_M(1,1) - m_M(1,0)*m_M(0,1))) {
+        auto sepline = QuadraticCurve::divAxis();
+
+        for(auto itr = ends[0].begin(); itr != ends[0].end(); /* nothing */) {
+            // For one side, move the element to the other buffer.
+            if (std::signbit(sepline->height(itr->pt))) {
+                ends[1].push_back(*itr);
+                itr = ends[0].erase(itr);
             }
-            else
+            // Else just keep the element.
+            else {
                 ++itr;
+            }
         }
     }
 
     // The variable where the result will be stored.
     std::vector<Bezier<Eigen::Vector2d,3> > result;
+    bool reliability = true;
 
-    // Working stack; we expand the recursion using stack.
-    std::vector<decltype(ends)> vstack{ends};
+    // For each cluster of end points, compute their connections.
+    for (auto& e : ends) {
+        while (!e.empty()) {
+            // If the number of remaining end points becomes odd, the result is no longer reliable.
+            if (e.size() < 2) {
+                reliability = false;
+                break;
+            }
 
-    while(!vstack.empty()) {
-        // Pop an element from the stack.
-        auto& pts = vstack.back();
-        vstack.pop_back();
+            // The index of the last end point in the buffer.
+            size_t i = e.size() - 1;
+            // The index of the possible companion.
+            size_t j = e[i].is_positive ? (e.size()-2) : 0;
 
-        // If there are only at most 1 point, then ignore the list.
-        if (pts.size() <= 1)
-            continue;
+            // Something is wrong on the companion
+            if (e[i].is_positive == e[j].is_positive) {
+                // Just ignore the current point
+                e.pop_back();
+                // The result is no longer reliable.
+                reliability = false;
+                continue;
+            }
 
-        // If the list has exactly two point, make a Bezier curve.
-        if (pts.size() == 2) {
-            auto tline1 = QuadraticCurve::tangent(pts[0][0]);
-            auto tline2 = QuadraticCurve::tangent(pts[1][0]);
-            auto intersect = tline1.intersect(tline2);
+            // The tangent lines
+            auto tline_i = QuadraticCurve::tangent(e[i].pt);
+            auto tline_j = QuadraticCurve::tangent(e[j].pt);
 
-            // If two tangent lines intersect, determine the tangent vectors in appropriate directions using the intersection and take them as control points.
-            if(intersect.first) {
-                Eigen::Vector2d v1 = (2.0/3.0)*(intersect.second - pts[0][0]);
-                Eigen::Vector2d v2 = (2.0/3.0)*(intersect.second - pts[1][0]);
+            // Compute the intersection
+            auto ret = tline_i.intersect(tline_j);
 
-                if(std::signbit(static_cast<double>(pts[0][1].adjoint() * v1)))
-                    v1 = -v1;
+            // If two tangent lines intersect.
+            if (ret.first) {
+                Eigen::Vector2d vi = ret.second - e[i].pt;
+                Eigen::Vector2d vj = ret.second - e[j].pt;
 
-                if(std::signbit(static_cast<double>(pts[1][1].adjoint() * v2)))
-                    v2 = -v2;
+                if (e[i].toInn.adjoint() * vi < 0)
+                    vi = -vi;
+                if (e[j].toInn.adjoint() * vj < 0)
+                    vj = -vj;
 
                 result.emplace_back(
-                    pts[0][0],
-                    pts[0][0] + v1,
-                    pts[1][0] + v2,
-                    pts[1][0]
+                    e[i].pt,
+                    e[i].pt + (1.0/3.0)*vi,
+                    e[j].pt + (1.0/3.0)*vj,
+                    e[j].pt
                     );
             }
-            // Otherwise, use the half of the attached normal vectors.
+            // If two tangent lines are parallel.
             else {
                 result.emplace_back(
-                    pts[0][0],
-                    pts[0][0] + 0.5*pts[0][1],
-                    pts[1][0] + 0.5*pts[1][0],
-                    pts[1][0]
+                    e[i].pt,
+                    e[i].pt + 0.5*e[i].toInn,
+                    e[j].pt + 0.5*e[j].toInn,
+                    e[j].pt
                     );
             }
-        }
-        // If the list consists of more than 2 points, divide it into two and compute the paring for each one.
-        else {
-            // Take the last point as a reference point.
-            std::array<Eigen::Vector2d,2> pt_top = pts.back();
-            auto tline = QuadraticCurve::tangent(pt_top[0]);
-            pts.pop_back();
 
-            // The reference point is considered in the both continued steps.
-            decltype(ends) pts_pos{pt_top}, pts_neg{pt_top};
-
-            for(auto pt : pts) {
-                if (std::signbit(tline.height(pt[0])))
-                    pts_neg.push_back(pt);
-                else
-                    pts_pos.push_back(pt);
-            }
-
-            vstack.push_back(pts_neg);
-            vstack.push_back(pts_pos);
+            // Remove the processed end points.
+            e.pop_back();
+            e.erase(std::next(e.begin(),j));
         }
     }
 
-    return std::move(result);
+    return {std::move(result), std::move(reliability)};
 }

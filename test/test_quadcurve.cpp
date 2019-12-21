@@ -52,7 +52,7 @@ TEST(QuadraticCurve, Curvature)
             << "k=" << std::endl << k << std::endl;
     }
 
-    // Hyperboila
+    // Hyperbola
     QuadraticCurve hyperbola{1.0, -1.0, -1.0, 0.0, 0.0, 0.0};
     for(double t = 0.0; t < 10.0; t += 1.0) {
         double x = std::cosh(0.2*t*M_PI);
@@ -105,13 +105,23 @@ TEST(QuadraticCurve, Intersect)
     ASSERT_EQ(params1.size(), 1);
     EXPECT_LT(std::abs(params1[0] - 0.5), 1e-14);
 
-    auto params2 = circle.intersectParams(
-        Eigen::Vector2d(0.0, -0.2),
-        Eigen::Vector2d(2.0, -0.2) );
+    for(double t = 0.0; t < 1.0; t += 0.125) {
+        double theta = 2*M_PI*t;
+        double r = 1.5 - 0.5*t;
 
-    ASSERT_EQ(params2.size(), 2);
-    EXPECT_LT(std::abs(params2[0] - 0.2), 1e-14);
-    EXPECT_LT(std::abs(params2[1] - 0.8), 1e-14);
+        auto params2 = circle.intersectParams(
+            Eigen::Vector2d(1.0-r*cos(theta), -1.0-r*sin(theta)),
+            Eigen::Vector2d(1.0+r*cos(theta), -1.0+r*sin(theta)) );
+
+        ASSERT_EQ(params2.size(), 2);
+        EXPECT_LT(std::abs(params2[0] - (0.5-0.5*t)/(3.0-t)), 1e-14);
+        EXPECT_LT(std::abs(params2[1] - (2.5-0.5*t)/(3.0-t)), 1e-14);
+    }
+
+    auto params3 = circle.intersectParams(2.0, -1.1, -0.2, -1.0);
+
+    ASSERT_EQ(params3.size(), 2)
+        << params3[0] << std::endl;
 
     EXPECT_TRUE(
         circle.intersectParams(
@@ -120,7 +130,6 @@ TEST(QuadraticCurve, Intersect)
     EXPECT_TRUE(circle.intersectParams(0.8, -1.1, 1.1, -0.9).empty());
 }
 
-/*
 TEST(QuadraticCurve, Triangle)
 {
     using VT = Eigen::Vector2d;
@@ -128,12 +137,97 @@ TEST(QuadraticCurve, Triangle)
     // Unit circle with center (1.0,-1.0).
     QuadraticCurve circle{1.0, 1.0, 1.0, 0.0, -2.0, 2.0};
 
-    auto beziers = circle.onTriangle(
-        {VT(0.5,0.5), VT(0.5,-1.5), VT(2.5,-1.5)} );
+    for(double t = 0.0; t < 1.0; t += 0.125) {
+        Eigen::Vector2d pt1(1.0 - 1.2*sin(M_PI*t),-1.0 + 1.2*cos(M_PI*t));
+        Eigen::Vector2d pt2(1.0 - 0.6*t, -1.0 - 0.8*t);
+        Eigen::Vector2d pt3(2.0, -1.1);
 
-    EXPECT_EQ(beziers.size(), 2);
-    EXPECT_LT( (beziers[0].get<0>() - VT(1.0, 0.0)).norm(), QuadraticCurve::threshold)
-        << beziers[0].get<0>() << std::endl << beziers[0].get<1>() << std::endl;
+        auto beziers = circle.onTriangle({pt1, pt2, pt3});
+
+        auto is12 = circle.intersectParams(pt1, pt2);
+        auto is23 = circle.intersectParams(pt2, pt3);
+        auto is31 = circle.intersectParams(pt3, pt1);
+
+        EXPECT_TRUE(beziers.second);
+        ASSERT_EQ(is12.size(), 1);
+        ASSERT_EQ(is23.size(), 1);
+        ASSERT_EQ(is31.size(), 2)
+            << pt3 << std::endl << pt1 << std::endl;
+        ASSERT_EQ(beziers.first.size(), 2);
+
+        EXPECT_LT(
+            (beziers.first[0].get<0>() - pt3 - is31[1]*(pt1-pt3)).norm(),
+            1e-14);
+        EXPECT_LT(
+            (beziers.first[0].get<3>() - pt1 - is12[0]*(pt2-pt1)).norm(),
+            1e-14);
+        EXPECT_LT(
+            (beziers.first[1].get<0>() - pt3 - is31[0]*(pt1-pt3)).norm(),
+            1e-14);
+        EXPECT_LT(
+            (beziers.first[1].get<3>() - pt2 - is23[0]*(pt3-pt2)).norm(),
+            1e-14);
+    }
+
+    // Hyperbola
+    // (x-1)^2 - (y+1)^2 - 1 = 0
+    QuadraticCurve hyperbola{1.0, -1.0, -1.0, 0.0, -2.0, -2.0};
+    for(double t = 0.0; t < 1.0; t += 0.125) {
+        VT pt1{3.0, -1.0};
+        VT pt2{-1.0, -5.0};
+        VT pt3{-1.0, -1.0 + 2.0*sqrt(3.0)*t};
+        auto beziers2 = hyperbola.onTriangle({pt1, pt2, pt3});
+
+        auto is12 = hyperbola.intersectParams(pt1, pt2);
+        auto is23 = hyperbola.intersectParams(pt2, pt3);
+        auto is31 = hyperbola.intersectParams(pt3, pt1);
+
+        EXPECT_TRUE( beziers2.second != (t==0.5) );
+        ASSERT_EQ(is12.size(), 1);
+        ASSERT_EQ(is23.size(), (t>=0.5) ? 2 : 1);
+        ASSERT_EQ(is31.size(), (t<=0.5) ? 2 : 1);
+        ASSERT_EQ( beziers2.first.size(), 2 );
+
+        if (t == 0.5) {
+            EXPECT_LT(
+                (beziers2.first[1].get<0>() - pt3 - is31[1]*(pt1-pt3)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[1].get<3>() - pt1 - is12[0]*(pt2-pt1)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<0>() - pt3).norm(), 1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<3>() - pt2 - is23[0]*(pt3-pt2)).norm(),
+                1e-14);
+        }
+        else if (t > 0.5) {
+            EXPECT_LT(
+                (beziers2.first[1].get<0>() - pt3 - is31[0]*(pt1-pt3)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[1].get<3>() - pt1 - is12[0]*(pt2-pt1)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<0>() - pt2 - is23[1]*(pt3-pt2)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<3>() - pt2 - is23[0]*(pt3-pt2)).norm(),
+                1e-14);
+        }
+        else {
+            EXPECT_LT(
+                (beziers2.first[1].get<0>() - pt3 - is31[1]*(pt1-pt3)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[1].get<3>() - pt1 - is12[0]*(pt2-pt1)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<0>() - pt3 - is31[0]*(pt1-pt3)).norm(),
+                1e-14);
+            EXPECT_LT(
+                (beziers2.first[0].get<3>() - pt2 - is23[0]*(pt3-pt2)).norm(),
+                1e-14);
+        }
+    };
 }
-*/
-

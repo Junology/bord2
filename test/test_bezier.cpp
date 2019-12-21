@@ -13,8 +13,6 @@ TEST(Bezier, Linear2D)
     EXPECT_LT( (bez.eval(0.2) - VT(0.2, 0.4)).norm(), 10e-14 );
     EXPECT_LT( (bez.eval(0.5) - VT(0.5, 1.0)).norm(), 10e-14 );
     EXPECT_LT( (bez.eval(0.7) - VT(0.7, 1.4)).norm(), 10e-14 );
-
-    auto bezdiv = bez.divide();
 }
 
 TEST(Bezier, LinearDiv)
@@ -26,7 +24,8 @@ TEST(Bezier, LinearDiv)
 
     EXPECT_LT( (bezdiv.first.get<0>()-bez.eval(0.0)).norm(), 10e-14 );
     EXPECT_LT( (bezdiv.first.get<1>()-bez.eval(0.5)).norm(), 10e-14 );
-    EXPECT_LT( (bezdiv.second.get<0>()-bez.eval(0.5)).norm(), 10e-14 );
+    EXPECT_LT( (bezdiv.second.get<0>()-bez.eval(0.5)).norm(), 10e-14 )
+        << bezdiv.second.get<0>() << std::endl;
     EXPECT_LT( (bezdiv.second.get<1>()-bez.eval(1.0)).norm(), 10e-14 )
         << bezdiv.second.get<1>() << std::endl;
 }

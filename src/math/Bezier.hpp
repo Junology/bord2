@@ -14,6 +14,8 @@
 
 #include "../utils.hpp"
 
+//#include <iostream> // Debug
+
 /*! The class for Bezier curves.
  * \tparam T The type of vertices; e.g. Eigen::Vector2d, Eigen::Vector3d. It must be possible to
  * - add two vertices;
@@ -77,7 +79,7 @@ public:
     {
         return {
             divide_forth_impl(std::make_index_sequence<num_pts>()),
-            divide_latter_impl(bord2::make_reversed_index_seq<num_pts>())
+            divide_latter_impl(std::make_index_sequence<num_pts>())
         };
     }
 
@@ -96,14 +98,24 @@ protected:
     constexpr auto divide_forth_impl(std::index_sequence<is...>) const
         -> std::array<vertex_type, num_pts>
     {
-        return {bord2::cipow(0.5,is)*weightedSum(bord2::binom<>::getArray<double,is,num_pts>())...};
+        constexpr std::array<double,sizeof...(is)>
+            coeff{bord2::cipow(0.5,is)...};
+        constexpr std::array<std::array<double,num_pts>,sizeof...(is)>
+            weights{bord2::binom<>::getArray<double,is,num_pts>()...};
+
+        return {coeff[is]*weightedSum(weights[is])...};
     }
 
     template<size_t... is>
     constexpr auto divide_latter_impl(std::index_sequence<is...>) const
         -> std::array<vertex_type, num_pts>
     {
-        return {bord2::cipow(0.5,is)*weightedSum(bord2::binom<>::getArrayRev<double,is,num_pts>())...};
+        constexpr std::array<double,sizeof...(is)>
+            coeff{bord2::cipow(0.5,is)...};
+        constexpr std::array<std::array<double,num_pts>,sizeof...(is)>
+            weights{bord2::binom<>::getArrayRev<double,is,num_pts>()...};
+
+        return {coeff[num_pts-is-1]*weightedSum(weights[num_pts-is-1])...};
     }
 };
 

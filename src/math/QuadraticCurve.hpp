@@ -80,9 +80,12 @@ public:
         return intersectParams(Eigen::Vector2d(x0,y0), Eigen::Vector2d(x1,y1));
     }
 
-    //! Approximate the intersection with a given triangle by cubic Bezier curves.
-    //! \param p The array of vertices that span a triangle.
-    //! \return The set of Bezier curves each of which approximates a connected component of the intersection.
+    /*! Approximate the intersection with a given triangle by cubic Bezier curves.
+     * \param p The array of vertices that span a triangle.
+     * \return The pair of
+     * - the set of Bezier curves each of which approximates a connected component of the intersection;
+     * - the flag indicating if the returned list is reliable.
+     */
     auto onTriangle(std::array<Eigen::Vector2d,3> const& p)
-        -> std::vector<Bezier<Eigen::Vector2d,3> >;
+        -> std::pair<std::vector<Bezier<Eigen::Vector2d,3> >,bool>;
 };
