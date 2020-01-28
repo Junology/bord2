@@ -53,7 +53,7 @@
  *   > 'r', '7' -> (1,0)
  * The binary representation of a whole semi-elementary tangle is obtained by component-wise concatenation.
  */
-template<size_t MR = 64, size_t MC = 64>
+template<size_t MR = sizeof(unsigned int)*8, size_t MC = sizeof(unsigned int)*8>
 class PlTang
 {
     template<size_t R, size_t C>

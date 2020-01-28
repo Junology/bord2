@@ -1,5 +1,5 @@
 /*!
- * \file PlTangView.hpp
+ * \file PlTangView.cpp
  * \author Jun Yoshida
  * \copyright (c) 2019-2020 Jun Yoshida.
  * The project is released under the MIT License.
@@ -11,6 +11,8 @@
 #include "PlTangView.hpp"
 
 wxIMPLEMENT_DYNAMIC_CLASS(PlTangView,wxControl);
+wxIMPLEMENT_DYNAMIC_CLASS(PlTangEvent, wxCommandEvent);
+wxDEFINE_EVENT(PLTANG_MOVED, PlTangEvent);
 
 wxBEGIN_EVENT_TABLE(PlTangView, wxControl)
   EVT_SIZE(PlTangView::OnSize)
@@ -21,7 +23,8 @@ wxBEGIN_EVENT_TABLE(PlTangView, wxControl)
 wxEND_EVENT_TABLE()
 
 template<size_t MR, size_t MC>
-bool renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint baseX, wxPoint baseY)
+static bool
+renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint baseX, wxPoint baseY)
 {
     auto wxgc = wxGraphicsContext::Create(dc);
 
@@ -66,6 +69,73 @@ bool renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoin
     }
     wxgc->StrokePath(path);
     delete wxgc;
+
+    return true;
+}
+
+bool PlTangView::undo() noexcept
+{
+    if (m_moveHistory.empty())
+        return false;
+
+    auto& movedt = m_moveHistory.top();
+    applyMove(movedt.index, movedt.x, movedt.y, true);
+    m_moveHistory.pop();
+    m_moveRedoers.push(movedt);
+
+    return true;
+}
+
+bool PlTangView::redo() noexcept
+{
+    if (m_moveRedoers.empty())
+        return false;
+
+    auto& movedt = m_moveRedoers.top();
+    applyMove(movedt.index, movedt.x, movedt.y, false);
+    m_moveRedoers.pop();
+    m_moveHistory.push(movedt);
+
+    return true;
+}
+
+bool PlTangView::applyMove(const std::string &name, size_t x, size_t y) noexcept
+{
+    size_t i = 0;
+
+    for(; i < m_moveDict.size(); ++i) {
+        if(std::strcmp(name.c_str(), m_moveDict[i].getName()) == 0) {
+            auto loctang = m_pltang.slice<MoveType::rows, MoveType::cols>(x, y);
+            if(m_moveDict[i].getBefore() == loctang)
+                break;
+        }
+    }
+
+    if (i==m_moveDict.size() || !applyMove(i,x,y)) {
+        return false;
+    }
+
+    //! Clear the redo stack.
+    if (!m_moveRedoers.empty())
+        m_moveRedoers = {};
+
+    m_moveHistory.emplace(i,x,y);
+
+    return true;
+}
+
+bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert) noexcept
+{
+    auto newloc
+        = revert ? m_moveDict[i].getBefore() : m_moveDict[i].getAfter();
+
+    m_pltang.replace(x, y, newloc);
+
+    //! Invoke event
+    PlTangEvent event{m_moveDict[i], x, y, revert, PLTANG_MOVED, GetId()};
+    event.SetEventObject(this);
+
+    ProcessEvent(event);
 
     return true;
 }
@@ -156,7 +226,7 @@ void PlTangView::OnMouseMove(wxMouseEvent& event) noexcept
 void PlTangView::OnMouseLeft(wxMouseEvent& event) noexcept
 {
     if (m_curx > 0 && m_cury > 0) {
-        PlTang<2,2> loctang = m_pltang.slice<2, 2>(m_curx-1, m_cury-1);
+        auto loctang = m_pltang.slice<MoveType::rows, MoveType::cols>(m_curx-1, m_cury-1);
         wxMenu *popup = new wxMenu;
 
         for(size_t i = 0; i < m_moveDict.size(); ++i) {
@@ -166,8 +236,12 @@ void PlTangView::OnMouseLeft(wxMouseEvent& event) noexcept
 
         if(popup->GetMenuItemCount() > 0) {
             popup->Bind(wxEVT_COMMAND_MENU_SELECTED, [&popup,this](wxCommandEvent& ev) {
-                    m_moveHistory.emplace(m_moveDict[ev.GetId()], m_curx-1, m_cury-1);
-                    m_pltang.replace(m_curx-1, m_cury-1, m_moveDict[ev.GetId()].getAfter());
+                    //! Clear the redo stack.
+                    if (!m_moveRedoers.empty())
+                        m_moveRedoers = {};
+
+                    m_moveHistory.emplace(ev.GetId(), m_curx-1, m_cury-1);
+                    this->applyMove(ev.GetId(), m_curx-1, m_cury-1);
                     this->Refresh();
                 });
             this->PopupMenu(popup);

@@ -16,13 +16,21 @@
  */
 template <size_t R, size_t C>
 class PlTangMove {
+public:
+    enum : size_t {
+        rows = R,
+        cols = C
+    };
+
 private:
     char const* m_name;
     PlTang<R,C> m_tangBefore;
     PlTang<R,C> m_tangAfter;
 
 public:
-    PlTangMove() = delete;
+    constexpr PlTangMove() noexcept
+        : m_name{nullptr}, m_tangBefore{}, m_tangAfter{}
+    {}
 
     template<size_t n>
     constexpr PlTangMove(char const (&name)[n], PlTang<R,C> const& before, PlTang<R,C> const& after) noexcept

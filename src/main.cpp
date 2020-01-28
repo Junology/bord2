@@ -20,6 +20,7 @@ class MainApp : public wxApp
 {
 public:
     virtual bool OnInit() override;
+    //virtual int FilterEvent(wxEvent& event) override;
 };
 
 DECLARE_APP(MainApp)
@@ -32,3 +33,11 @@ bool MainApp::OnInit()
     wxApp::SetTopWindow(MainWin);
     return true;
 }
+
+/*
+int MainApp::FilterEvent(wxEvent& event)
+{
+    std::cout << event.GetId() << std::endl;
+    return wxApp::FilterEvent(event);
+}
+*/
