@@ -10,3 +10,4 @@
 
 //#include "PathFigure3D.hpp"
 #include "QBezierLine3D.hpp"
+#include "QBezierTriangle.hpp"

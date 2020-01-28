@@ -22,14 +22,7 @@
  * - multiply vertices by floating points, i.e. double.
  * \tparam n The degree of the Bezier curve. Hence, the number of control points would be n+1.
  */
-template <
-    class T,
-    size_t n,
-    class U = std::pair<
-        decltype(std::declval<T>()+std::declval<T>()),
-        decltype(std::declval<double>()*std::declval<T>())
-        >
-    >
+template <class T, size_t n>
 class Bezier
 {
 public:
@@ -46,13 +39,21 @@ protected:
     std::array<vertex_type, num_pts> m_pts;
 
 public:
-    template <class... Ts>
-    constexpr Bezier(Ts &&... pts)
-        : m_pts{std::forward<Ts>(pts)...}
+    template <
+      class U,
+      class... Ts,
+      std::enable_if_t<
+          std::is_constructible<vertex_type, U>::value
+          && !std::is_same<Bezier<T,n>,std::decay_t<U> >::value,
+          bool
+          > = true
+    >
+    constexpr Bezier(U && pt0, Ts &&... pts)
+      : m_pts{std::forward<U>(pt0), std::forward<Ts>(pts)...}
     {}
 
-    constexpr Bezier(Bezier<vertex_type,n,U> const &) = default;
-    constexpr Bezier(Bezier<vertex_type,n,U> &&) = default;
+    constexpr Bezier(Bezier<vertex_type,n> const &) = default;
+    constexpr Bezier(Bezier<vertex_type,n> &&) = default;
 
     virtual ~Bezier() = default;
 

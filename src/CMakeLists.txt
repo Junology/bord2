@@ -5,10 +5,12 @@ add_executable(
   main.cpp
   MainFrame.cpp
   MainDrawPane.cpp
+  PlTangView.cpp
+  PlTangEntryDialog.cpp
   WxGSScheme.cpp
-#  math/funcs.cpp
   math/AffHypPlane.cpp
   math/QuadraticCurve.cpp
+  figures/QBezierTriangle.cpp
 )
 
 target_link_libraries(

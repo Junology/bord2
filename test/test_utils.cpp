@@ -25,7 +25,28 @@ TEST(TestTraits, ReversedIndices)
     EXPECT_EQ(indarr_rev4, (std::array<size_t,4>{3,2,1,0}));
 }
 
-TEST(TestPower, Integer)
+TEST(TestUtilFunction, BitWave)
+{
+    constexpr auto wave = bitwave<uint16_t>(3);
+    EXPECT_EQ(wave, static_cast<uint16_t>(0b0111000111000111));
+
+    EXPECT_EQ(bitwave<uint32_t>(1), static_cast<uint32_t>(0x55555555));
+    EXPECT_EQ(bitwave<uint32_t>(2), static_cast<uint32_t>(0x33333333));
+    EXPECT_EQ(bitwave<uint32_t>(4), static_cast<uint32_t>(0x0f0f0f0f));
+    EXPECT_EQ(bitwave<uint32_t>(8), static_cast<uint32_t>(0x00ff00ff));
+    EXPECT_EQ(bitwave<uint32_t>(16), static_cast<uint32_t>(0x0000ffff));
+}
+
+TEST(TestUtilFunction, PopCount)
+{
+    constexpr auto cnt1 = popcount(0x1u);
+    constexpr auto cnt2 = popcount(0b1011001110001111u);
+
+    EXPECT_EQ(cnt1, 1u);
+    EXPECT_EQ(cnt2, 10u);
+}
+
+TEST(TestUtilFunction, IntegerPower)
 {
     EXPECT_EQ(cipow(3,0), 1);
     EXPECT_EQ(cipow(3,1), 3);
@@ -39,7 +60,7 @@ TEST(TestPower, Integer)
     EXPECT_EQ(cipow(-2,3), -8);
 }
 
-TEST(TestPower, Float)
+TEST(TestUtilFunction, FloatPower)
 {
     EXPECT_EQ(cipow(0.5,0), 1.0);
     EXPECT_EQ(cipow(0.5,1), 0.5);
@@ -52,6 +73,17 @@ TEST(TestPower, Float)
     EXPECT_EQ(cipow(-0.5,2), 0.25);
     EXPECT_EQ(cipow(-0.5,3), -0.125);
     EXPECT_EQ(cipow(-0.5,4), 0.0625);
+}
+
+TEST(TestUtilFunction, StringLength)
+{
+    constexpr auto len0 = strlength("Hello, World!");
+    constexpr char tststr[] = "Hello, World!\0Bye!";
+    constexpr auto len1 = strlength(tststr);
+    constexpr auto len2 = strlength("Hello, World!\0Bye!");
+
+    EXPECT_EQ(len0, len1);
+    EXPECT_EQ(len0, len2);
 }
 
 TEST(TestBinom, Value)

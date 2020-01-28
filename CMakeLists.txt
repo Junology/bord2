@@ -18,7 +18,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 ## Libraries
 find_package(Threads REQUIRED)
 find_package(Eigen3 3.3 REQUIRED NO_MODULE)
-find_package(wxWidgets COMPONENTS core base REQUIRED)
+find_package(wxWidgets COMPONENTS core base adv REQUIRED)
 
 include(${wxWidgets_USE_FILE})
 

@@ -11,10 +11,12 @@ if(GTEST_FOUND)
 
   add_executable(${PROJECT_NAME_TEST}
 	test_utils.cpp
+	test_bitarray.cpp
 	test_solvers.cpp
 	test_affhyp.cpp
 	test_bezier.cpp
 	test_quadcurve.cpp
+	test_pltang.cpp
 	${CMAKE_SOURCE_DIR}/src/math/AffHypPlane.cpp
 	${CMAKE_SOURCE_DIR}/src/math/QuadraticCurve.cpp)
 

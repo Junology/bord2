@@ -10,6 +10,8 @@
 
 #include <type_traits>
 #include <utility>
+#include <tuple>
+#include <array>
 
 namespace bord2 {
 
@@ -47,10 +49,10 @@ template <template <class...> class TBase, class Derived>
 using is_pubbase_of_template = typename is_pubbase_of_template_impl<TBase, Derived>::type;
 
 //! make_index_sequence reversed
-template <size_t N>
+template <std::size_t N>
 class make_reversed_index_seq_impl{
 private:
-    template <size_t... is>
+    template <std::size_t... is>
     static constexpr auto reverse_impl(std::index_sequence<is...>)
         -> std::index_sequence<(sizeof...(is)-is-1)...>;
 
@@ -58,17 +60,42 @@ public:
     using type = decltype(reverse_impl(std::declval<std::make_index_sequence<N> >()));
 };
 
-template <size_t N>
+template <std::size_t N>
 using make_reversed_index_seq = typename make_reversed_index_seq_impl<N>::type;
 
 
-/****************************!
- * \section Combinatorials
- ****************************/
+/*******************************************!
+ * \section Compile-time utility functions
+ *******************************************/
+template <class T>
+constexpr T bitwave(size_t width) noexcept
+{
+    if (width == 0)
+        return T{};
+
+    T result = static_cast<T>(~static_cast<T>(0u)) >> (sizeof(T)*8 - width);
+
+    for(width *= 2; width < sizeof(T)*8; width *= 2) {
+        result |= result << width;
+    }
+
+    return result;
+}
+
+//! Population-count (aka. Hamming weight).
+template <class T>
+constexpr std::remove_reference_t<std::remove_cv_t<T> > popcount(T x) noexcept
+{
+    for(size_t i = 1; i < sizeof(T)*8; i <<= 1) {
+        x = (x & bitwave<T>(i)) + ( (x>>i) & bitwave<T>(i) );
+    }
+
+    return x;
+}
 
 //! Compile-time non-negative integer power
 template<class T>
-inline constexpr std::remove_reference_t<std::remove_cv_t<T> > cipow(T &&x, size_t n)
+inline constexpr std::remove_reference_t<std::remove_cv_t<T> > cipow(T &&x, std::size_t n)
 {
     if (n==0)
         return 1;
@@ -76,9 +103,62 @@ inline constexpr std::remove_reference_t<std::remove_cv_t<T> > cipow(T &&x, size
         return ((n&0x1) ? x : 1)*cipow(x*x,n>>1);
 }
 
+//! Compile-time string length
+template <std::size_t N>
+constexpr std::size_t strlength(char const (&str)[N]) noexcept
+{
+    std::size_t len = 0;
+    while(str[len] && len < N)
+        ++len;
+
+    return len;
+}
+
+template <
+    class T,
+    std::enable_if_t<
+        std::is_same<T,char const*>::value,
+        int
+        > = 0
+    >
+constexpr std::size_t strlength(T str) noexcept
+{
+    std::size_t len = 0;
+    while(str[len])
+        ++len;
+
+    return len;
+}
+
+template <class... Ts>
+constexpr void ignoreall(Ts&&...) noexcept
+{}
+
+template <size_t... is, class... Ts>
+constexpr void tupbind_impl(std::index_sequence<is...>, std::tuple<Ts...> const &tup, std::decay_t<Ts>&... var) noexcept
+{
+    ignoreall(std::get<is>(std::tie(var...))=std::get<is>(tup)...);
+}
+
+template <class... Ts>
+constexpr void tupbind(std::tuple<Ts...> const &tup, std::decay_t<Ts>&... var) noexcept
+{
+    tupbind_impl(std::index_sequence_for<Ts...>(), tup, var...);
+}
+
+template <std::size_t x, std::size_t y>
+struct firstoftwo {
+    enum : std::size_t { value = x };
+};
+
+
+/****************************!
+ * \section Combinatorials
+ ****************************/
+
 //! Binomial coefficients
 template<
-    class T = size_t,
+    class T = std::size_t,
     class = std::enable_if_t<
         std::is_integral<T>::value && !std::is_same<T,bool>::value
         >
@@ -106,20 +186,20 @@ struct binom {
         return result;
     }
 
-    template<class U, size_t n, size_t N=n+1>
+    template<class U, std::size_t n, std::size_t N=n+1>
     static constexpr std::array<U,N> getArray()
     {
         return getArray_impl<U,n>(std::make_index_sequence<N>());
     }
 
-    template<class U, size_t n, size_t N=n+1>
+    template<class U, std::size_t n, std::size_t N=n+1>
     static constexpr std::array<U,N> getArrayRev()
     {
         return getArray_impl<U,n>(bord2::make_reversed_index_seq<N>());
     }
 
 private:
-    template<class U, size_t n, size_t... is>
+    template<class U, std::size_t n, std::size_t... is>
     static constexpr auto getArray_impl(std::index_sequence<is...> const &dummy)
         -> std::array<U,sizeof...(is)>
     {

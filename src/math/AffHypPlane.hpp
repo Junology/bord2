@@ -30,14 +30,15 @@ private:
     VecT m_normal;
     double m_c;
 
+    template<size_t... is>
+    constexpr AffHypPlane(std::array<double,dim> const & normal, double c, std::index_sequence<is...>)
+        : m_normal(normal[is]...), m_c(c)
+    {}
+
 public:
     constexpr AffHypPlane(std::array<double,dim> const & normal, double c)
-        : m_normal(), m_c(c)
-    {
-        // We can use initializer_list instead of array since Eigen 3.3.10.
-        for(size_t i=0; i<dim; ++i)
-            m_normal(i) = normal[i];
-    }
+    : AffHypPlane<n>(normal, c, std::make_index_sequence<n>())
+    {}
 
     constexpr AffHypPlane(VecT const &normal, VecT const &refpt)
         : m_normal(normal), m_c(-normal.adjoint()*refpt)
@@ -67,7 +68,7 @@ public:
     //! \warning: The value is not normalized; or with respect to the normal vector of the hyperplane.
     constexpr double height(VecT const &v) const
     {
-        return m_normal.adjoint()*v+m_c;
+        return static_cast<double>(m_normal.adjoint()*v) + m_c;
     }
 
     template <class... Ts>

@@ -8,6 +8,8 @@
 
 #include "AffHypPlane.hpp"
 
+// #include <iostream> // Debug
+
 //! Compute an intersection with another hyper plane in the special case of dimension 2.
 template <> template<>
 auto AffHypPlane<2>::intersect<2>(AffHypPlane<2> const &another) const

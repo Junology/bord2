@@ -21,6 +21,7 @@ class MainDrawPane : public wxPanel
 {
 private:
     std::unique_ptr<QBezierLine3D> mp_fig3d;
+    std::vector<std::unique_ptr<PathFigure3D> > m_figs;
     double m_elev, m_azim;
     std::array<double,3> m_focus;
 
@@ -29,7 +30,7 @@ public:
         FailedCreatingGC
     } Error;
 
-    MainDrawPane(wxFrame *parent);
+    MainDrawPane(wxWindow *parent);
 
     inline void queuePaint() {
         MainDrawPane::render(wxClientDC(this));
@@ -40,6 +41,6 @@ protected:
     void OnKeyDown(wxKeyEvent &event);
     void render(wxWindowDC &&dc);
 
-    DECLARE_EVENT_TABLE()
+    wxDECLARE_EVENT_TABLE();
 };
 

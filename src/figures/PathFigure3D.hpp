@@ -18,5 +18,5 @@ public:
     PathFigure3D() = default;
     virtual ~PathFigure3D() = default;
 
-    virtual void updateProjector(Eigen::Matrix<double,3,2> const &proj) {}
+    virtual void updateProjector(Eigen::Matrix<double,2,3> const &proj) {}
 };

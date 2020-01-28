@@ -10,21 +10,8 @@
 
 // #include <iostream> // For Debug
 
+#include "misc.hpp"
 #include "solvers.hpp"
-
-/*************************
- *** Utility functions ***
- *************************/
-
-double cross2D(Eigen::Ref<Eigen::Vector2d> const &x, Eigen::Ref<Eigen::Vector2d> const &y)
-{
-    return x(0)*y(1)-x(1)*y(0);
-}
-
-double cross2D(Eigen::Vector2d &&x, Eigen::Vector2d &&y)
-{
-    return x(0)*y(1)-x(1)*y(0);
-}
 
 /*********************************************************
  *** Implementation of members of QuadraticCurve class ***
@@ -158,8 +145,10 @@ auto QuadraticCurve::onTriangle(std::array<Eigen::Vector2d,3> const& p)
         for(double t : ts) {
             Eigen::Vector2d v = p[(i+1)%3] - p[i];
             Eigen::Vector2d pt = p[i] + t*v;
+            Eigen::Vector2d vperp(-v(1),v(0));
+            vperp.normalize();
             Eigen::Vector2d toInn
-                = (v.norm()*v.norm())*v*p[(i+2)%3].adjoint()*Eigen::Vector2d(-v(1),v(0));
+                = vperp * (p[(i+2)%3]-pt).adjoint() * vperp;
             Eigen::Vector2d kappa = QuadraticCurve::curvature(pt);
             double inprod = kappa.adjoint() * v;
 
@@ -173,10 +162,9 @@ auto QuadraticCurve::onTriangle(std::array<Eigen::Vector2d,3> const& p)
         }
     }
 
+    auto sepline = QuadraticCurve::divAxis();
     // If the curve is hyperbolic, separate end points in different components.
-    if (std::signbit(m_M(0,0)*m_M(1,1) - m_M(1,0)*m_M(0,1))) {
-        auto sepline = QuadraticCurve::divAxis();
-
+    if (sepline) {
         for(auto itr = ends[0].begin(); itr != ends[0].end(); /* nothing */) {
             // For one side, move the element to the other buffer.
             if (std::signbit(sepline->height(itr->pt))) {
@@ -229,15 +217,15 @@ auto QuadraticCurve::onTriangle(std::array<Eigen::Vector2d,3> const& p)
                 Eigen::Vector2d vi = ret.second - e[i].pt;
                 Eigen::Vector2d vj = ret.second - e[j].pt;
 
-                if (e[i].toInn.adjoint() * vi < 0)
+                if (static_cast<double>(e[i].toInn.adjoint()*vi) < 0)
                     vi = -vi;
-                if (e[j].toInn.adjoint() * vj < 0)
+                if (static_cast<double>(e[j].toInn.adjoint()*vj) < 0)
                     vj = -vj;
 
                 result.emplace_back(
                     e[i].pt,
-                    e[i].pt + (1.0/3.0)*vi,
-                    e[j].pt + (1.0/3.0)*vj,
+                    e[i].pt + (2.0/3.0)*vi,
+                    e[j].pt + (2.0/3.0)*vj,
                     e[j].pt
                     );
             }
