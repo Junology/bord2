@@ -13,13 +13,88 @@
 #    include <wx/wx.h>
 #endif
 
+#include <sstream>
+
+#include "PlTang.hpp"
+
 class PlTangEntryDialog : public wxDialog
 {
     wxDECLARE_DYNAMIC_CLASS(PlTangEntryDialog);
     wxDECLARE_EVENT_TABLE();
 
+protected:
+    template <class T>
+    struct EntryValidatorOf;
+
+    template <size_t R, size_t C>
+    class EntryValidatorOf< PlTang<R,C> > : public wxTextValidator
+    {
+    private:
+        PlTang<R,C> *m_pltang;
+
+    public:
+        EntryValidatorOf(PlTang<R,C> *pltang) : m_pltang(pltang) {}
+
+        bool verifyPlTang() const {
+            if(m_pltang && m_pltang->isvalid()) {
+                return true;
+            }
+            else {
+                std::ostringstream oss;
+                oss << "Invalid ASCII-Art representation:" << std::endl;
+                oss << m_pltang->aarep();
+                wxMessageBox(oss.str(), "Error", wxICON_WARNING);
+                return false;
+            }
+        }
+
+        /*** Inherited virtual functions ***/
+        virtual wxObject* Clone() const override {
+            return new EntryValidatorOf<PlTang<R,C>>(*this);
+        }
+
+        virtual bool Validate(wxWindow *parent) override {
+            wxTextCtrl *txtentry = wxDynamicCast(GetWindow(), wxTextCtrl);
+
+            if (txtentry && m_pltang) {
+                (*m_pltang) = PlTang<R,C>{
+                    static_cast<char const*>(txtentry->GetValue())
+                };
+                return verifyPlTang();
+            }
+            else
+                return false;
+        }
+
+        virtual bool TransferToWindow() override {
+            wxTextCtrl *txtentry = wxDynamicCast(GetWindow(), wxTextCtrl);
+
+            if (m_pltang && txtentry) {
+                txtentry->SetValue(m_pltang->aarep());
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+
+        virtual bool TransferFromWindow() override {
+            wxTextCtrl *txtentry = wxDynamicCast(GetWindow(), wxTextCtrl);
+            if (m_pltang && txtentry) {
+                (*m_pltang) = PlTang<R,C>{
+                    static_cast<char const*>(txtentry->GetValue())
+                };
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    };
+
 private:
     wxTextCtrl *m_textctrl{nullptr};
+    PlTang<> m_pltang{};
 
 public:
     enum : long {
@@ -55,9 +130,12 @@ public:
         CreateControls(message);
     }
 
-    wxString GetValue() const
-    {
+    wxString GetValue() const {
         return m_textctrl ? m_textctrl->GetValue() : wxString();
+    }
+
+    auto GetPlTang() const {
+        return m_pltang;
     }
 
 protected:

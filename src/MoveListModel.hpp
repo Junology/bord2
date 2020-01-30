@@ -65,8 +65,15 @@ public:
     }
 
     void pop_back() noexcept {
-        m_elems.pop_back();
-        wxDataViewVirtualListModel::RowDeleted(m_elems.size());
+        if (m_elems.size() > 0) {
+            m_elems.pop_back();
+            wxDataViewVirtualListModel::RowDeleted(m_elems.size());
+        }
+    }
+
+    void reset() noexcept {
+        m_elems.clear();
+        wxDataViewVirtualListModel::Reset(0);
     }
 
     virtual unsigned int GetColumnCount() const override { return Col_Max; }

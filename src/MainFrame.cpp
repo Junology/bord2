@@ -18,15 +18,23 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
   EVT_MENU(wxID_EXIT, MainFrame::OnExit)
   EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
   EVT_MENU(wxID_REDO, MainFrame::OnRedo)
+  EVT_MENU(wxID_PREVIEW, MainFrame::OnPreview)
   EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
 // PlTangView associated events
   EVT_PLTANG_MOVED(wxID_ANY, MainFrame::OnTangleMoved)
 wxEND_EVENT_TABLE()
 
+constexpr auto pltangInit = PlTang<>{
+    "||r7\n"
+    "||LJ\n"
+    "LJ  \n"
+    "r7  \n"
+};
+
 //! Constructor.
 MainFrame::MainFrame(const char* title)
   : wxFrame(nullptr, -1, title, wxDefaultPosition, wxSize(800,600)),
-    m_drawPane(nullptr), m_pltangView(nullptr)
+    m_pltangInit(pltangInit), m_pltangView(nullptr)
 {
     // Setup Manus
     wxMenu *menuFile = new wxMenu;
@@ -36,6 +44,8 @@ MainFrame::MainFrame(const char* title)
     wxMenu *menuTool = new wxMenu;
     menuTool->Append(wxID_UNDO);
     menuTool->Append(wxID_REDO);
+    menuTool->Append(wxID_SEPARATOR);
+    menuTool->Append(wxID_PREVIEW);
 
     wxMenu *menuHelp = new wxMenu;
     menuHelp->Append(wxID_ABOUT);
@@ -68,11 +78,7 @@ MainFrame::MainFrame(const char* title)
     // Drawing Area
     //m_drawPane = new MainDrawPane(this);
     m_pltangView = new PlTangView(
-        this, wxID_ANY, /*PlTang<>()*/
-        PlTang<>("||r7\n"
-                 "||LJ\n"
-                 "LJ  \n"
-                 "r7  \n")
+        this, wxID_ANY, m_pltangInit
         );
     constexpr PlTangMove<2,2> moves[] = {
         PlTangMove<2,2>{
@@ -134,14 +140,10 @@ void MainFrame::OnNew(wxCommandEvent& event)
     PlTangEntryDialog entryDlg{this, wxID_ANY, "Enter ASCII-Art representation:", appconf::fullname};
 
     if (entryDlg.ShowModal() == wxID_OK) {
-        PlTang<> newtang{static_cast<char const*>(entryDlg.GetValue().c_str())};
-        if(newtang.isvalid()) {
-            m_pltangView->SetPlTang(newtang);
-            m_pltangView->Refresh();
-        }
-        else {
-            wxMessageBox("Invalid representation.", "Error", wxOK, this);
-        }
+        m_pltangInit = entryDlg.GetPlTang();
+        m_pltangView->SetPlTang(m_pltangInit);
+        m_pltangView->Refresh();
+        m_list_model->reset();
     }
 }
 
@@ -160,6 +162,21 @@ void MainFrame::OnRedo(wxCommandEvent &event)
 {
     m_pltangView->redo();
     m_pltangView->Refresh();
+}
+
+void MainFrame::OnPreview(wxCommandEvent &event)
+{
+    if(!m_pltangInit.isvalid())
+        return;
+
+    if(!m_prevDlg) {
+        m_prevDlg = new BordPreviewDialog(this, wxID_ANY, "Preview Cobordism");
+    }
+
+    if(!m_prevDlg->IsShown()) {
+        m_prevDlg->setPlTang(m_pltangInit);
+        m_prevDlg->Show();
+    }
 }
 
 void MainFrame::OnAbout(wxCommandEvent& event)

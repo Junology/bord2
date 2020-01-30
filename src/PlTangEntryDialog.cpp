@@ -13,10 +13,21 @@ wxIMPLEMENT_DYNAMIC_CLASS(PlTangEntryDialog, wxDialog);
 wxBEGIN_EVENT_TABLE(PlTangEntryDialog, wxDialog)
 wxEND_EVENT_TABLE()
 
+template <class T>
+struct ValidatorOf;
+
 void PlTangEntryDialog::CreateControls(wxString const& msg)
 {
     // Setup the text control.
-    m_textctrl = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxSize{200,300}, wxTE_MULTILINE | wxTE_DONTWRAP);
+    m_textctrl = new wxTextCtrl(
+        this,
+        wxID_ANY,
+        wxEmptyString,
+        wxDefaultPosition,
+        wxSize{200,300},
+        wxTE_MULTILINE | wxTE_DONTWRAP,
+        EntryValidatorOf<decltype(m_pltang)>{&m_pltang});
+
     wxFont font{
         12,
         wxFONTFAMILY_TELETYPE,

@@ -14,15 +14,18 @@
 #    include <wx/dataview.h>
 #endif
 
-#include "MainDrawPane.hpp"
 #include "PlTangView.hpp"
 #include "MoveListModel.hpp"
+#include "BordPreviewDialog.hpp"
 
 //! The class for the main window.
 class MainFrame : public wxFrame
 {
 private:
-    MainDrawPane *m_drawPane;
+    PlTang<> m_pltangInit{};
+
+    //MainDrawPane *m_drawPane;
+    BordPreviewDialog *m_prevDlg{};
     PlTangView *m_pltangView;
 
     wxDataViewCtrl *m_pltang_list;
@@ -37,6 +40,7 @@ private:
     void OnExit(wxCommandEvent& event);
     void OnUndo(wxCommandEvent& event);
     void OnRedo(wxCommandEvent& event);
+    void OnPreview(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
 
     // Handlers of other events

@@ -8,7 +8,9 @@
 
 #include <wx/graphics.h>
 
+#include "WxGSScheme.hpp"
 #include "PlTangView.hpp"
+#include "figures/PlTangFigure.hpp"
 
 wxIMPLEMENT_DYNAMIC_CLASS(PlTangView,wxControl);
 wxIMPLEMENT_DYNAMIC_CLASS(PlTangEvent, wxCommandEvent);
@@ -26,6 +28,27 @@ template<size_t MR, size_t MC>
 static bool
 renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint baseX, wxPoint baseY)
 {
+    AdapterScheme<std::array<double,2>, Eigen::Vector2d> scheme{
+        new WxGSScheme(dc),
+            [](Eigen::Vector2d vec) {
+            return std::array<double,2>{vec(0), vec(1)};
+        }
+    };
+
+    if(!scheme.isvalid())
+        return false;
+
+    PlTangFigure<MR,MC> pltangfig{
+        tang,
+        Eigen::Vector2d(baseX.x, baseX.y),
+        Eigen::Vector2d(baseY.x, baseY.y)
+    };
+
+    scheme.translate(Eigen::Vector2d(orig.x, orig.y));
+    scheme.setPen(2, bord2::Red);
+    pltangfig.draw(scheme);
+
+    /*
     auto wxgc = wxGraphicsContext::Create(dc);
 
     if(!wxgc)
@@ -69,7 +92,7 @@ renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint bas
     }
     wxgc->StrokePath(path);
     delete wxgc;
-
+    */
     return true;
 }
 

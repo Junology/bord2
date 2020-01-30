@@ -4,9 +4,10 @@ add_executable(
   ${PROJECT_NAME}
   main.cpp
   MainFrame.cpp
-  MainDrawPane.cpp
   PlTangView.cpp
+  Figure3DView.cpp
   PlTangEntryDialog.cpp
+  BordPreviewDialog.cpp
   WxGSScheme.cpp
   math/AffHypPlane.cpp
   math/QuadraticCurve.cpp

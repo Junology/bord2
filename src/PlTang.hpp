@@ -222,37 +222,39 @@ public:
     //! \tparam C The number of columns of the slice.
     //! \param left The index of the left-most cell to be sliced.
     //! \param top The index of the top-most cell to be sliced.
-    //! \return The slice of the planar tangle, which is invalid if the result is not a planar tangle.
-    template <size_t R, size_t C>
-    constexpr PlTang<R,C> slice(size_t left, size_t top) const noexcept
+    //! \param wid The number of cells in a horizontal direction.
+    //! \param hei The number of cells in a vertical direction.
+    //! \return The slice of the planar tangle, which is invalid if the result is not a planar tangle, or if indices or sizes are invalid.
+    template <size_t R = max_rows, size_t C = max_cols>
+    constexpr PlTang<R,C> slice(size_t left, size_t top, size_t wid = C, size_t hei = R) const noexcept
     {
         // Range check.
-        if (C == 0 || R == 0 || left+C > m_hlength || top+R > m_vlength)
+        if (wid > C || hei > R || wid == 0 || hei == 0 || left+wid > m_hlength || top+hei > m_vlength)
             return PlTang<R,C>();
 
         PlTang<R,C> result;
-        result.m_hlength = C;
-        result.m_vlength = R;
+        result.m_hlength = wid;
+        result.m_vlength = hei;
 
         // Copy the slice of the codomain.
-        result.m_bincob[0] = m_bincob[top].template slice<C>(left);
+        result.m_bincob[0] = m_bincob[top].template slice<C>(left).lowpass(wid);
         size_t parityL
             = m_bincob[top].lowpass(left).popCount() & 0x1;
         size_t parityR
-            = m_bincob[top].lowcut(left+C).popCount() & 0x1;
+            = m_bincob[top].lowcut(left+wid).popCount() & 0x1;
 
-        for(size_t j = 1; j <= R; ++j) {
+        for(size_t j = 1; j <= hei; ++j) {
             size_t parityLD
                 = m_bincob[top+j].lowpass(left).popCount() & 0x1;
             size_t parityRD
-                = m_bincob[top+j].lowcut(left+C).popCount() & 0x1;
+                = m_bincob[top+j].lowcut(left+wid).popCount() & 0x1;
 
             // It turns out that the slice is not a tangle.
             if(parityLD != parityL || parityRD != parityR) {
                 return PlTang<R,C>();
             }
 
-            result.m_bincob[j] = m_bincob[top+j].template slice<C>(left);
+            result.m_bincob[j] = m_bincob[top+j].template slice<C>(left).lowpass(wid);
 
             parityL = parityLD;
             parityR = parityRD;
@@ -263,7 +265,6 @@ public:
 
     //! Replace local tangles.
     //! For the meaning of the arguments, \see slice.
-    //! \pre R=src.vlength() && C=src.hlength()
     //! \retval true Replacement succeeded.
     //! \retval false Replacement failed. Note that, in case, the tangle will be kept unchanged.
     template <size_t R, size_t C>
@@ -272,22 +273,22 @@ public:
         if (!isvalid() || !src.isvalid())
             return false;
 
-        /* Verify the precondition.
-        if (src.vlength() != R || src.hlength() != C)
-            return false;
-        // */
-
         // Range check.
-        if (C == 0 || R == 0 || left+C > m_hlength || top+R > m_vlength)
+        if (left + src.m_hlength > m_hlength || top + src.m_vlength > m_vlength)
             return false;
 
-        // Boundary check
-        if (m_bincob[top].template slice<C>(left) != src.m_bincob[0] || m_bincob[top+R].template slice<C>(left) != src.m_bincob[R])
+        // Compatibility of the codomains.
+        if (m_bincob[top].template slice<C>(left).lowpass(src.m_hlength) != src.m_bincob[0])
+            return false;
+
+        // Compatibility of the domains.
+        if (m_bincob[top+src.m_vlength].template slice<C>(left).lowpass(src.m_hlength) != src.m_bincob[src.m_vlength])
             return false;
 
         // Replacement
-        for(size_t i = 1; i < R; ++i)
-            m_bincob[top+i].replace(left, src.m_bincob[i]);
+        // Note that codomains and domains are in the cases i==0 and i==src.m_vlength respectively.
+        for(size_t i = 1; i < src.m_vlength; ++i)
+            m_bincob[top+i].replace(left, src.m_bincob[i], src.m_hlength);
 
         return true;
     }
@@ -318,6 +319,12 @@ public:
     //! where i is the index and c is the character at the index in the AA-rep.
     template <class F>
     constexpr void forElTang(size_t i, F && fun) noexcept
+    {
+        foreachAA(m_bincob[i+1], m_bincob[i], m_hlength, std::forward<F>(fun));
+    }
+
+    template <class F>
+    constexpr void forElTang(size_t i, F && fun) const noexcept
     {
         foreachAA(m_bincob[i+1], m_bincob[i], m_hlength, std::forward<F>(fun));
     }

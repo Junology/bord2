@@ -1,7 +1,7 @@
 /*!
  * \file BitArrY.hpp
  * \author Jun Yoshida
- * \copyright (c) 2019 Jun Yoshida.
+ * \copyright (c) 2019-2020 Jun Yoshida.
  * The project is released under the MIT License.
  * \date January, 5 2020: created
  */
@@ -123,7 +123,16 @@ public:
         return result;
     }
 
-    //! Slicing array.
+    //! Slicing array; a version for slicing into a larger bit-array.
+    //! Hence, it is actually just a cast with right shifts.
+    template <size_t n>
+    constexpr auto slice(std::size_t i) const noexcept
+        -> std::enable_if_t<(n>=N),BitArray<n,T>>
+    {
+        return BitArray<n>(*this) >> i;
+    }
+
+    //! Slicing array; a version for slicing into a smaller bit-array.
     //! \param i The position of the lowest bit in the slice.
     template <size_t n>
     constexpr auto slice(std::size_t i) const noexcept
@@ -137,28 +146,37 @@ public:
     //! \param n The number of bits ignored.
     constexpr BitArray<N,T> lowcut(std::size_t n) const noexcept
     {
-        return lowcut_impl(std::make_index_sequence<length>(), n);
+        return n >= N ? BitArray<N,T>{} : lowcut_impl(std::make_index_sequence<length>(), n);
     }
 
     //! Inactivate higher bits.
     //! \param n The number of bits kept considered.
     constexpr BitArray<N,T> lowpass(std::size_t n) const noexcept
     {
-        return lowpass_impl(std::make_index_sequence<length>(), n);
+        return n >= N ? *this : lowpass_impl(std::make_index_sequence<length>(), n);
     }
 
     //! Replace subarray with smaller array
     //! \param i The index of the lowest bit to be replaced.
     template <size_t M, std::enable_if_t<(M<=N),int> = 0 >
-    constexpr void replace(size_t i, BitArray<M,T> const& src) noexcept
+    constexpr void replace(size_t i, BitArray<M,T> const& src, size_t wid = M) noexcept
     {
+        // Check if the operation is trivial.
+        // Thanks to this, we can assume i < N in what follows.
+        if (i >= N)
+            return;
+
         std::size_t gpos = i / chunkbits;
         std::size_t lpos = i % chunkbits;
-        std::size_t num = (M + lpos + chunkbits - 1) / chunkbits;
 
         BitArray<M+chunkbits,T> src_adj = BitArray<M+chunkbits,T>{src} << lpos;
-        BitArray<M+chunkbits,T> mask = BitArray<M+chunkbits,T>{~BitArray<M,T>{}} << lpos;
+        BitArray<M+chunkbits,T> mask
+            = BitArray<M+chunkbits,T>{(~BitArray<M,T>{}).lowpass(wid)} << lpos;
 
+        // The number of loops
+        // Note that we here assume i < N so that gpos < length.
+        std::size_t num
+            = std::min(length-gpos, (M + lpos + chunkbits - 1) / chunkbits);
         for(size_t j = 0; j < num; ++j) {
             m_arr[gpos+j] &= ~(mask.m_arr[j]);
             m_arr[gpos+j] |= src_adj.m_arr[j];
@@ -354,3 +372,11 @@ protected:
     }
 };
 
+template<class C, size_t N, class T>
+std::ostream& operator<<(std::basic_ostream<C>& out, BitArray<N,T> const& bit)
+{
+    for(size_t i = 0; i < BitArray<N,T>::length; ++i)
+        out.put(bit.test(i) ? '1' : '0');
+
+    return out;
+}

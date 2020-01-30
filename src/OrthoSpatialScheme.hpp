@@ -11,10 +11,11 @@
 #include <memory>
 #include <Eigen/Dense>
 
+#include "PathScheme.hpp"
 #include "utils.hpp"
 
 /*! An implementation of PathScheme for 3-dimensional paths based on 2-dimensional one.
- * \tparam T A base implementaion of PathScheme for 2-dimensional paths. Ensure that 
+ * \tparam T A base implementaion of PathScheme for 2-dimensional paths. Ensure that it is an implementation of
  */
 template <
     class T,
@@ -36,11 +37,9 @@ private:
     Eigen::Vector3d m_focus;
 
 public:
-    template <class... Ts>
-    OrthoSpatialScheme(std::array<double,3> const & focus, double elev, double azim, Ts&&... args)
-        : PathScheme<Eigen::Vector3d>(),
-          mp_base(new BaseScheme(std::forward<Ts>(args)...)),
-          m_focus(focus[0], focus[1], focus[2])
+    //! Construct from an instance of the base scheme
+    OrthoSpatialScheme(Eigen::Vector3d const& focus, double elev, double azim, BaseScheme *base)
+        : PathScheme<Eigen::Vector3d>{}, mp_base(base), m_focus(focus)
     {
         double t = M_PI*elev/180.0;
         double u = M_PI*azim/180.0;
@@ -51,7 +50,24 @@ public:
             sin(t)*sin(u), sin(t)*cos(u), cos(t);
     }
 
+    //! Direct construction of an instance of the base scheme.
+    template <class... Ts>
+    OrthoSpatialScheme(Eigen::Vector3d const & focus, double elev, double azim, Ts&&... args)
+        : OrthoSpatialScheme(focus, elev, azim, new BaseScheme(std::forward<Ts>(args)...))
+    {}
+
     virtual ~OrthoSpatialScheme() = default;
+
+    //! Release the responsibility for deleting the pointer of a base scheme.
+    //! \return The pointer to a base scheme, which have to be deleted by hand.
+    BaseScheme* release() {
+        auto ret = mp_base.get();
+        if (mp_base) {
+            mp_base->release();
+            mp_base.reset(nullptr);
+        }
+        return ret;
+    }
 
     Eigen::Vector2d project(Eigen::Vector3d const &p)
     {
@@ -65,6 +81,15 @@ public:
     //** Scheme data query
     virtual BBoxT getBBox() const override {
         return mp_base->getBBox();
+    }
+
+    virtual bool isvalid() const noexcept {
+        return mp_base && mp_base->isvalid();
+    }
+
+    virtual void translate(vertex_type const &p) noexcept {
+        auto p2d = project(p);
+        mp_base->translate(BaseVertexType{p2d(0), p2d(1)});
     }
 
     //* Pens and Brushes
