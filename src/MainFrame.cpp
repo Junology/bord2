@@ -133,18 +133,29 @@ MainFrame::MainFrame(const char* title)
 
     wxFrame::SetSizer(sizer);
     wxFrame::SetAutoLayout(true);
+
+    // Create an instance of preview dialog
+    m_prevDlg = new BordPreviewDialog(this, wxID_ANY, "Preview Cobordism");
+    if(m_pltangInit.isvalid())
+        m_prevDlg->setPlTang(m_pltangInit);
 }
 
 void MainFrame::OnNew(wxCommandEvent& event)
 {
     PlTangEntryDialog entryDlg{this, wxID_ANY, "Enter ASCII-Art representation:", appconf::fullname};
 
-    if (entryDlg.ShowModal() == wxID_OK) {
-        m_pltangInit = entryDlg.GetPlTang();
-        m_pltangView->SetPlTang(m_pltangInit);
-        m_pltangView->Refresh();
-        m_list_model->reset();
-    }
+    if (entryDlg.ShowModal() != wxID_OK)
+        return;
+
+    // We can believe that the planar tangle is valid thanks to the validator associated to the entry dialog; \see PlTangEntrydialog::EntryValidatorOf.
+    m_pltangInit = entryDlg.GetPlTang();
+
+    m_pltangView->SetPlTang(m_pltangInit);
+    m_pltangView->Refresh();
+    m_list_model->reset();
+
+    m_prevDlg->setPlTang(m_pltangInit);
+    m_prevDlg->Refresh();
 }
 
 void MainFrame::OnExit(wxCommandEvent& event)
@@ -166,13 +177,6 @@ void MainFrame::OnRedo(wxCommandEvent &event)
 
 void MainFrame::OnPreview(wxCommandEvent &event)
 {
-    if(!m_pltangInit.isvalid())
-        return;
-
-    if(!m_prevDlg) {
-        m_prevDlg = new BordPreviewDialog(this, wxID_ANY, "Preview Cobordism");
-    }
-
     if(!m_prevDlg->IsShown()) {
         m_prevDlg->setPlTang(m_pltangInit);
         m_prevDlg->Show();
@@ -190,8 +194,22 @@ void MainFrame::OnTangleMoved(PlTangEvent& event)
 
     if(event.IsRevert()) {
         m_list_model->pop_back();
+        m_prevDlg->getFigure<32,32>().pop();
+        m_prevDlg->Refresh();
     }
     else {
         m_list_model->emplace_back(event.GetMove(), event.GetX(), event.GetY());
+        m_prevDlg->getFigure<32,32>().push(
+            event.GetMove(),
+            event.GetX(),
+            event.GetY(),
+            [&](PathScheme<Eigen::Vector3d>& scheme, TangleMoveFigure<decltype(m_pltangInit)>::MoveDrawData dt) {
+                scheme.moveTo(dt.baseX + dt.baseY);
+                scheme.lineTo(2*dt.baseX + dt.baseY);
+                scheme.lineTo(2*dt.baseX + 2*dt.baseY);
+                scheme.closePath();
+                scheme.stroke();
+            } );
+        m_prevDlg->Refresh();
     }
 }

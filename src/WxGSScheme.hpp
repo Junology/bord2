@@ -104,6 +104,14 @@ public:
         mp_gc->Translate(p[0], p[1]);
     }
 
+    void save() override {
+        mp_gc->PushState();
+    }
+
+    void restore() override {
+        mp_gc->PopState();
+    }
+
     //** Drawing paths.
     //! Stroke and flush.
     void stroke() override {

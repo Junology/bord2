@@ -6,23 +6,38 @@
  * \date January 26, 2020: created
  */
 
-#include <iostream>
-
 #include "BordPreviewDialog.hpp"
 
-wxIMPLEMENT_DYNAMIC_CLASS(BordPreviewDialog, wxDialog);
+#include <iostream>
+#include <Eigen/Dense>
 
-wxBEGIN_EVENT_TABLE(BordPreviewDialog, wxDialog)
+#include "TikzScheme.hpp"
+#include "OrthoSpatialScheme.hpp"
+#include "ROEntryDialog.hpp"
+
+wxIMPLEMENT_DYNAMIC_CLASS(BordPreviewDialog, wxFrame);
+
+wxBEGIN_EVENT_TABLE(BordPreviewDialog, wxFrame)
 EVT_CLOSE(BordPreviewDialog::OnClose)
+EVT_MENU(wxID_INFO, BordPreviewDialog::OnTikz)
 wxEND_EVENT_TABLE()
 
 void BordPreviewDialog::CreateControls()
 {
+    // Menubar
+    wxMenu *menuView = new wxMenu;
+    menuView->Append(wxID_INFO, "Show Tikz code");
+
+    wxMenuBar *menuBar = new wxMenuBar;
+    menuBar->Append(menuView, "&View");
+
+    wxFrame::SetMenuBar(menuBar);
+
     m_drawPane = new Figure3DView(this, wxID_ANY, wxDefaultPosition, wxSize{600,450});
 
     auto sizer = new wxBoxSizer(wxVERTICAL);
-    wxDialog::SetSizer(sizer);
-    wxDialog::SetAutoLayout(true);
+    wxFrame::SetSizer(sizer);
+    wxFrame::SetAutoLayout(true);
 
     sizer->Add(m_drawPane, 0, wxEXPAND | wxALL, 3);
 
@@ -36,4 +51,27 @@ void BordPreviewDialog::OnClose(wxCloseEvent &event)
         Show(false);
     else
         Destroy();
+}
+
+void BordPreviewDialog::OnTikz(wxCommandEvent &event)
+{
+    double elev = m_drawPane->getElev();
+    double azim = m_drawPane->getAzim();
+
+    OrthoSpatialScheme<TikzScheme> scheme{
+        Eigen::Vector3d{
+            m_drawPane->getFocus()[0],
+            m_drawPane->getFocus()[1],
+            m_drawPane->getFocus()[2]
+        },
+        elev, azim
+    };
+
+    m_drawPane->getFigure()->draw(scheme);
+    ROEntryDialog dlg(
+        this, wxID_ANY,
+        "Tikz Code",
+        scheme.getBase()->getTikzSetCode()
+        + scheme.getBase()->getTikzCode());
+    dlg.ShowModal();
 }

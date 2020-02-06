@@ -16,7 +16,7 @@
  * \tparam N The number of bits
  * \tparam T The type carrying bits.
  */
-template <std::size_t N, class T = unsigned int>
+template <std::size_t N, class T = uint_fast32_t>
 class BitArray {
     //! Have access to BitArray of different lengths.
     template<std::size_t M, class U>
@@ -26,6 +26,7 @@ public:
     using chunk_type = T;
 
     enum : std::size_t {
+        numbits = N,
         chunkbits = 8 * sizeof(chunk_type),
         length = (N + chunkbits - 1) / chunkbits,
         endbits = N % chunkbits
@@ -33,7 +34,19 @@ public:
 
     enum chunkval : chunk_type {
         zero = static_cast<chunk_type>(0u),
+        one = static_cast<chunk_type>(1u),
         nzero = static_cast<chunk_type>(~zero)
+    };
+
+    template <size_t n/*, std::enable_if_t<(0<n) && (n<chunkbits),int> = 0*/>
+    struct lowmask {
+        enum : chunk_type {
+            mask = (0 < n)
+                ? (n < chunkbits)
+                  ? static_cast<chunk_type>(chunkval::nzero >> (chunkbits - n))
+                  : chunkval::nzero
+                : 0
+        };
     };
 
 private:
@@ -43,7 +56,10 @@ private:
     template <std::size_t... is, class... Ts>
     constexpr BitArray(std::index_sequence<is...>, Ts&&... args) noexcept
       : m_arr{std::forward<Ts>(args)..., bord2::firstoftwo<0u,is>::value...}
-    {}
+    {
+        if (endbits > 0)
+            m_arr[length-1] &= lowmask<endbits>::mask;
+    }
 
     //! Initialize from an array of chunk_type
     template <std::size_t... is>
@@ -94,20 +110,28 @@ public:
     //! Set a bit in the given position.
     constexpr void set(std::size_t pos, bool value = true) noexcept
     {
+        // If the position is out-of-range, nothing happen.
+        if (pos > numbits)
+            return;
+
         std::size_t gpos = pos / chunkbits;
         std::size_t lpos = pos % chunkbits;
         if(value)
-            m_arr[gpos] |= 0x1 << lpos;
+            m_arr[gpos] |= (chunkval::one) << lpos;
         else
-            m_arr[gpos] &= ~(0x1 << lpos);
+            m_arr[gpos] &= ~(chunkval::one << lpos);
     }
 
     //! Test if a bit in the given position is true.
     constexpr bool test(std::size_t pos) const noexcept
     {
+        // If the position is out-of-range, the function always returns false.
+        if (pos > numbits)
+            return false;
+
         std::size_t gpos = pos / chunkbits;
         std::size_t lpos = pos % chunkbits;
-        return m_arr[gpos] & (0x1 << lpos);
+        return m_arr[gpos] & (chunkval::one << lpos);
     }
 
     //! Population-count (aka. Hamming weight).
@@ -120,6 +144,41 @@ public:
             result += static_cast<size_t>(bord2::popcount(m_arr[i]));
         }
 
+        return result;
+    }
+
+    //! Count trailing ones.
+    constexpr size_t countTrail1() const noexcept {
+        size_t result = 0;
+        for(size_t i = 0; i < length; ++i) {
+            size_t r = bord2::counttrail1(m_arr[i]);
+            result += r;
+            if (r < chunkbits)
+                break;
+        }
+        return result;
+    }
+
+    //! Count trailing zeros.
+    constexpr std::size_t countTrail0() const noexcept {
+        std::size_t result = 0;
+        for(std::size_t i = 0; i < length; ++i) {
+            std::size_t r = m_arr[i]
+                ? bord2::counttrail0<chunk_type>(m_arr[i])
+                : chunkbits;
+
+            // Not at the end byte.
+            if (endbits == 0 || i+1 < length)
+                result += r;
+            // At the end byte.
+            else {
+                result += std::min(r, static_cast<std::size_t>(endbits));
+                break;
+            }
+
+            if (r < chunkbits)
+                break;
+        }
         return result;
     }
 
@@ -215,6 +274,13 @@ public:
         return *this;
     }
 
+    explicit constexpr operator bool() const noexcept {
+        for(auto x : m_arr)
+            if(x) return true;
+
+        return false;
+    }
+
     constexpr bool operator==(BitArray<N,T> const &other) const noexcept
     {
         bool result = true;
@@ -269,9 +335,9 @@ protected:
     static constexpr chunk_type get_mask(std::size_t i) noexcept {
         return inrange(i)
             ? (endbits > 0 && i+1 == length // check if tail bit.
-               ? (chunkval::nzero >> (chunkbits-endbits))
-               : chunkval::nzero)
-            : chunkval::zero;
+               ? static_cast<chunk_type>(lowmask<endbits>::mask)
+               : static_cast<chunk_type>(chunkval::nzero))
+            : static_cast<chunk_type>(chunkval::zero);
     }
 
     /** Implementations **/
@@ -294,7 +360,7 @@ protected:
     {
         std::size_t gpos = n / chunkbits;
         std::size_t lpos = n % chunkbits;
-        chunk_type mask{chunkval::nzero << lpos};
+        chunk_type mask{static_cast<chunk_type>(chunkval::nzero << lpos)};
 
         return BitArray<N,T>(
             static_cast<chunk_type>(
@@ -309,7 +375,11 @@ protected:
     {
         std::size_t gpos = n / chunkbits;
         std::size_t lpos = n % chunkbits;
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnarrowing"
         chunk_type mask{lpos > 0u ? static_cast<chunk_type>(chunkval::nzero >> (chunkbits - lpos)) : chunkval::zero};
+#pragma GCC diagnostic pop
 
         return BitArray<N,T>(
             static_cast<chunk_type>(
@@ -375,8 +445,8 @@ protected:
 template<class C, size_t N, class T>
 std::ostream& operator<<(std::basic_ostream<C>& out, BitArray<N,T> const& bit)
 {
-    for(size_t i = 0; i < BitArray<N,T>::length; ++i)
-        out.put(bit.test(i) ? '1' : '0');
+    for(size_t i = 0; i < N; ++i)
+        out.put(bit.test(N-i-1) ? '1' : '0');
 
     return out;
 }

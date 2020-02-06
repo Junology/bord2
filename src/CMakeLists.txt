@@ -6,9 +6,11 @@ add_executable(
   MainFrame.cpp
   PlTangView.cpp
   Figure3DView.cpp
+  ROEntryDialog.cpp
   PlTangEntryDialog.cpp
   BordPreviewDialog.cpp
   WxGSScheme.cpp
+  TikzScheme.cpp
   math/AffHypPlane.cpp
   math/QuadraticCurve.cpp
   figures/QBezierTriangle.cpp

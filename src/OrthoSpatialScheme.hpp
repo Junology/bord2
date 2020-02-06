@@ -9,6 +9,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 #include <Eigen/Dense>
 
 #include "PathScheme.hpp"
@@ -27,6 +28,9 @@ template <
     >
 class OrthoSpatialScheme : public PathScheme<Eigen::Vector3d>
 {
+    template <class, class,class>
+    friend class OrthoSpatialScheme;
+
 public:
     using BaseScheme = T;
     using BaseVertexType = V;
@@ -35,6 +39,9 @@ private:
     std::unique_ptr<BaseScheme> mp_base;
     Eigen::Matrix<double,2,3> m_mat_proj;
     Eigen::Vector3d m_focus;
+
+    // State stack for save/restore
+    std::vector<std::pair<Eigen::Matrix<double,2,3>,Eigen::Vector3d>> m_ststack{};
 
 public:
     //! Construct from an instance of the base scheme
@@ -57,6 +64,19 @@ public:
     {}
 
     virtual ~OrthoSpatialScheme() = default;
+
+    template<class U, class... Args>
+    OrthoSpatialScheme<U> mimic(Args&&... args) const {
+        auto scheme = OrthoSpatialScheme<U>(m_focus, 0.0, 0.0, new U(std::forward<Args>(args)...));
+        scheme.m_mat_proj = m_mat_proj;
+        scheme.m_ststack = m_ststack;
+        return scheme;
+    }
+
+    //! Get the pointer to the underlying scheme.
+    BaseScheme const* getBase() const noexcept {
+        return mp_base.get();
+    }
 
     //! Release the responsibility for deleting the pointer of a base scheme.
     //! \return The pointer to a base scheme, which have to be deleted by hand.
@@ -87,9 +107,21 @@ public:
         return mp_base && mp_base->isvalid();
     }
 
-    virtual void translate(vertex_type const &p) noexcept {
-        auto p2d = project(p);
-        mp_base->translate(BaseVertexType{p2d(0), p2d(1)});
+    virtual void translate(vertex_type const &p) noexcept override {
+        //auto p2d = project(p);
+        //mp_base->translate(BaseVertexType{p2d(0), p2d(1)});
+        m_focus -= p;
+    }
+
+    virtual void save() override {
+        mp_base->save();
+        m_ststack.emplace_back(m_mat_proj, m_focus);
+    }
+
+    virtual void restore() override {
+        mp_base->restore();
+        m_mat_proj = m_ststack.back().first;
+        m_focus = m_ststack.back().second;
     }
 
     //* Pens and Brushes

@@ -12,6 +12,7 @@
 #include <utility>
 #include <tuple>
 #include <array>
+#include <vector>
 
 namespace bord2 {
 
@@ -86,11 +87,31 @@ constexpr T bitwave(size_t width) noexcept
 template <class T>
 constexpr std::remove_reference_t<std::remove_cv_t<T> > popcount(T x) noexcept
 {
+    // I hope the compiler unfolds the loop.
     for(size_t i = 1; i < sizeof(T)*8; i <<= 1) {
         x = (x & bitwave<T>(i)) + ( (x>>i) & bitwave<T>(i) );
     }
 
     return x;
+}
+
+//! Count trailing ones (using the population count above).
+template <class T>
+constexpr std::remove_reference_t<std::remove_cv_t<T>> counttrail1(T x) noexcept
+{
+    // These two operations clear the bits except the trailing 1s.
+    x = ~x & (x+1);
+    --x;
+    // Now, all we have to do is just counting bits of x.
+    return popcount<T>(x);
+}
+
+//! Count trailing zeros (using the population count above).
+template <class T>
+constexpr std::remove_reference_t<std::remove_cv_t<T>> counttrail0(T x) noexcept
+{
+    x = ~x & (x-1);
+    return popcount<T>(x);
 }
 
 //! Compile-time non-negative integer power
@@ -150,6 +171,35 @@ template <std::size_t x, std::size_t y>
 struct firstoftwo {
     enum : std::size_t { value = x };
 };
+
+
+/************************!
+ * \section Algorithms
+ ************************/
+template<
+    class InputIterator,
+    class F,
+    class Target = std::result_of_t<
+        F&&(std::remove_cv_t<std::remove_reference_t<decltype(*std::declval<InputIterator>())>>&&)
+        >,
+    class BinOp = std::plus<Target>
+    >
+constexpr inline auto accumMap(
+    InputIterator first,
+    InputIterator last,
+    F&& f,
+    Target init = Target{},
+    BinOp&& bin = std::plus<Target>()
+    ) noexcept(std::is_nothrow_assignable<Target, Target>::value)
+    -> Target
+{
+    while(first != last) {
+        init = bin(std::move(init), f(*first));
+        ++first;
+    }
+
+    return init;
+}
 
 
 /****************************!

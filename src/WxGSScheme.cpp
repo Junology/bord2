@@ -21,6 +21,9 @@
 wxColour getWxColor(const bord2::PathColor &col)
 {
     switch (col) {
+    case bord2::None:
+        return wxNullColour;
+
     case bord2::Black:
         return *wxBLACK;
 

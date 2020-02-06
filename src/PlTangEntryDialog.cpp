@@ -47,4 +47,5 @@ void PlTangEntryDialog::CreateControls(wxString const& msg)
 
     sizer->Fit(this);
     sizer->SetSizeHints(this);
+
 }

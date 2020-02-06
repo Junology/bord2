@@ -312,6 +312,29 @@ public:
         return result;
     }
 
+    //! Take a point from the interior of the tangle.
+    //! This function assumes that each cell in the tangle is normalized so that it is of size 1x1.
+    //! \return An interior point in the tangle if exists, or {-1.0, -1.0} otherwise. Therefore, one can detect the failure as follows:
+    //!   >> auto retval = pltang.takeInnPt();
+    //!   >> if (retval[0] > 0.0) {
+    //!   >>   /* SUCCESS */
+    //!   >> }
+    //!   >> else {
+    //!   >>   /* FAILURE */
+    //!   >> }
+    constexpr std::array<double,2> takeInnPt() const noexcept {
+        for(size_t j = 1; j < m_vlength; ++j) {
+            for (size_t i = 0; i < m_hlength; ++i){
+                if(m_bincob[j].test(i))
+                    return {i+0.5, static_cast<double>(j)};
+                else if(m_bincob[j-1].test(i))
+                    return {static_cast<double>(i+1), j-0.5};
+            }
+        }
+
+        return {-1.0, -1.0};
+    }
+
     //! Operation on a specified elementary planar tangle.
     //! This is not really "constexpr" for lambda until C++14.
     //! \param fun The function so that the following line makes sense:

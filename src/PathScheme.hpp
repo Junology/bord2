@@ -16,6 +16,7 @@ namespace bord2 {
 
 //! The list of colors (borrowed from TikZ).
 enum PathColor {
+    None,
     Black,
     White,
     Red,
@@ -72,6 +73,12 @@ public:
 
     //! Translate the origin.
     virtual void translate(vertex_type const& p) = 0;
+
+    //! Save the current state so that one can restore it later.
+    virtual void save() = 0;
+
+    //! Restore a state that is saved before.
+    virtual void restore() = 0;
 
     //* Drawing paths.
     //! Stroke and flush.
@@ -156,6 +163,14 @@ public:
 
     virtual void translate(target_vertex_type const &p) override {
         m_scheme->translate(m_f(p));
+    }
+
+    virtual void save() override {
+        m_scheme->save();
+    }
+
+    virtual void restore() override {
+        m_scheme->restore();
     }
 
     virtual void stroke() override { m_scheme->stroke(); }
