@@ -12,16 +12,19 @@ if(GTEST_FOUND)
   add_executable(${PROJECT_NAME_TEST}
 	test_utils.cpp
 	test_bitarray.cpp
+	test_coldptr.cpp
+	test_graph.cpp
+	test_genericgraph.cpp
 	test_solvers.cpp
 	test_affhyp.cpp
 	test_bezier.cpp
 	test_quadcurve.cpp
 	test_pltang.cpp
+	test_wiredtable.cpp
 	${CMAKE_SOURCE_DIR}/src/math/AffHypPlane.cpp
 	${CMAKE_SOURCE_DIR}/src/math/QuadraticCurve.cpp)
 
   target_compile_options(${PROJECT_NAME_TEST} PUBLIC -O0 -g -Wall)
-
   target_link_libraries(${PROJECT_NAME_TEST}
 	Threads::Threads
 	Eigen3::Eigen

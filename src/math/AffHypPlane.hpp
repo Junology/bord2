@@ -73,7 +73,7 @@ public:
 
     template <class... Ts>
     constexpr auto height(Ts&&... xs) const
-        -> std::enable_if_t<sizeof...(Ts)==dim && bord2::all_of<std::is_convertible<Ts,double>::value...>::value, double>
+        -> std::enable_if_t<sizeof...(Ts)==dim && bord2::allTrue({std::is_convertible<Ts,double>::value...}), double>
     {
         return height(VecT(std::forward<double>(xs)...));
     }

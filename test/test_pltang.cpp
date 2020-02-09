@@ -156,6 +156,18 @@ TEST(TestPlTang, Replace)
     }
 }
 
+TEST(TestPlTang, InnerPoint)
+{
+    constexpr auto pt1 = PlTang<3,3>{"|||\nLJ|\nr-J\n"}.takeInnPt();
+    EXPECT_EQ(pt1, (std::array<double,2>{0.5,1}));
+    constexpr auto pt2 = PlTang<3,3>{"r7|\nLJ|\nr-J\n"}.takeInnPt();
+    EXPECT_EQ(pt2, (std::array<double,2>{0.5,1}));
+    constexpr auto pt3 = PlTang<3,3>{"L7|\nrJ|\n|rJ\n"}.takeInnPt();
+    EXPECT_EQ(pt3, (std::array<double,2>{1,0.5}));
+    constexpr auto pt4 = PlTang<3,3>{" ||\nrJ|\n|rJ\n"}.takeInnPt();
+    EXPECT_EQ(pt4, (std::array<double,2>{1.5,1}));
+}
+
 TEST(TestPlTang, Precomp)
 {
     constexpr PlTang<32,32> upper(

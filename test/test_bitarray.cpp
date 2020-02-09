@@ -10,6 +10,18 @@ inline constexpr unsigned char operator "" _uc(unsigned long long x) noexcept
     return static_cast< unsigned char >(x);
 }
 
+template <size_t n, class T, size_t... Is>
+constexpr BitArray<n,T> diagBitArray(std::index_sequence<Is...>, T x)
+{
+    constexpr struct {
+        constexpr T operator()(size_t k, T y) const {
+            static_cast<void>(k);
+            return y;
+        }
+    } f{};
+    return BitArray<n,T>{f(Is,x)...};
+}
+
 TEST(TestBitArray, Initialize)
 {
     constexpr BitArray<8, unsigned char> ba1{0xf2_uc};
@@ -29,6 +41,12 @@ TEST(TestBitArray, Initialize)
 
     EXPECT_EQ(sizeof(ba5), sizeof(unsigned char)*4);
     EXPECT_EQ(ba5, (BitArray<29, unsigned char>(0xf2u)));
+
+    // Large size
+    constexpr size_t hugenum = 1024;
+    constexpr size_t hugebit = sizeof(int64_t)*8*hugenum;
+    constexpr auto ba7 = diagBitArray<hugebit,uint64_t>(std::make_index_sequence<hugenum>(), 0x5555555555555555llu);
+    EXPECT_EQ(sizeof(ba7), sizeof(int64_t)*hugenum);
 }
 
 TEST(TestBitArray, Comparison)
@@ -159,10 +177,34 @@ TEST(TestBitArray, PopCount)
 {
     constexpr BitArray<23, unsigned char> ba(0xff_uc, 0x13_uc, 0x0A_uc);
     constexpr BitArray<51, unsigned char> bb = ba;
+    constexpr BitArray<73, uint64_t> bc(UINT64_C(0x5555555555555555), UINT64_C(0x5555555555555));
+;
 
     EXPECT_EQ((BitArray<73, unsigned int>{}.popCount()), 0);
     EXPECT_EQ(ba.popCount(), 13);
     EXPECT_EQ((bb | bb << 23).popCount(), 26);
+    EXPECT_EQ(bc.popCount(), 37lu);
+}
+
+TEST(TestBitArray, CountTrailing0)
+{
+    constexpr BitArray<73,unsigned int> ba = BitArray<73, unsigned int>{0x7u} << 23;
+    constexpr BitArray<73, unsigned int> bb{};
+
+    EXPECT_EQ(bb.countTrail0(), 73) << bb;
+    EXPECT_EQ(ba.countTrail0(), 23);
+    EXPECT_EQ((ba | ba >> 11).countTrail0(), 12);
+}
+
+TEST(TestBitArray, CountTrailing1)
+{
+    constexpr BitArray<23, unsigned char> ba(0xff_uc, 0x13_uc, 0x0A_uc);
+    constexpr BitArray<51, unsigned char> bb = ba;
+
+    EXPECT_EQ((BitArray<73, unsigned int>{}.countTrail1()), 0);
+    EXPECT_EQ((BitArray<73, unsigned int>{0x7u}.countTrail1()), 3);
+    EXPECT_EQ(ba.countTrail1(), 10);
+    EXPECT_EQ((bb | bb << 2).countTrail1(), 13);
 }
 
 TEST(TestBitArray, Slice)
@@ -251,3 +293,55 @@ TEST(TestBitArray, Replace)
     }
 }
 
+TEST(TestBitArray, Bool)
+{
+    constexpr BitArray<91,uint64_t> ba(0x5555555555555555u, 0x5555555555555u);
+
+    EXPECT_TRUE(static_cast<bool>(ba));
+    EXPECT_FALSE(static_cast<bool>(ba&(ba >> 1)));
+}
+
+//* An application: Sieve of Eratosthenes
+TEST(TestBitArray, Primes)
+{
+    constexpr size_t max_chunk = 1024;
+    constexpr size_t max_num = 8*sizeof(uint_fast64_t)*max_chunk;
+    auto tbl = diagBitArray<max_num, uint_fast64_t>(std::make_index_sequence<max_chunk>(), 0x5555555555555555llu) << 3;
+    std::vector<size_t> primes{2};
+
+    // Compute all the primes less than max_num
+    while(tbl) {
+        size_t prime = tbl.countTrail0();
+        primes.push_back(prime);
+        for(size_t i = prime; i < max_num; i += 2*prime)
+            tbl.set(i, false);
+    }
+
+    size_t known[] = {
+        2, 3, 5, 7, 11, 13, 17, 19, 23, 29,
+        31, 37, 41, 43, 47, 53, 59, 61, 67, 71,
+        73, 79, 83, 89, 97, 101, 103, 107, 109, 113,
+        127, 131, 137, 139, 149, 151, 157, 163, 167, 173,
+        179, 181, 191, 193, 197, 199, 211, 223, 227, 229,
+        233, 239, 241, 251, 257, 263, 269, 271
+    };
+
+    ASSERT_GT(primes.size(), std::distance(std::begin(known), std::end(known)));
+    EXPECT_TRUE(std::equal(std::begin(known), std::end(known), primes.begin()));
+
+    // Check if prime
+    constexpr struct {
+        constexpr bool operator()(size_t n) const noexcept {
+            if (n==0 || n==1) return false;
+
+            for(size_t i = 2; i*i <= n; ++i)
+                if (n%i == 0) return false;
+
+            return true;
+        }
+    } is_prime{};
+
+    for(auto n : primes)
+        EXPECT_TRUE(is_prime(n)) << n;
+}
+// */

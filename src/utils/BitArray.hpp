@@ -10,6 +10,9 @@
 
 #include "../utils.hpp"
 
+#include <algorithm>
+#include <limits>
+
 /*!
  * Personal re-implementation of std::bitset with constexpr supports even in C++14.
  * It is guaranteed that every bit out of range is 0.
@@ -18,6 +21,9 @@
  */
 template <std::size_t N, class T = uint_fast32_t>
 class BitArray {
+    static_assert(std::is_unsigned<T>::value, "The type T is not unsigned or integral.");
+    static_assert( N > 0, "Zero-sized array is prohibited");
+
     //! Have access to BitArray of different lengths.
     template<std::size_t M, class U>
     friend class BitArray;
@@ -27,7 +33,7 @@ public:
 
     enum : std::size_t {
         numbits = N,
-        chunkbits = 8 * sizeof(chunk_type),
+        chunkbits = std::numeric_limits<chunk_type>::digits,
         length = (N + chunkbits - 1) / chunkbits,
         endbits = N % chunkbits
     };
@@ -38,7 +44,7 @@ public:
         nzero = static_cast<chunk_type>(~zero)
     };
 
-    template <size_t n/*, std::enable_if_t<(0<n) && (n<chunkbits),int> = 0*/>
+    template <size_t n>
     struct lowmask {
         enum : chunk_type {
             mask = (0 < n)
@@ -52,32 +58,23 @@ public:
 private:
     chunk_type m_arr[length];
 
-    //! Implementation of 0 initialization
-    template <std::size_t... is, class... Ts>
-    constexpr BitArray(std::index_sequence<is...>, Ts&&... args) noexcept
-      : m_arr{std::forward<Ts>(args)..., bord2::firstoftwo<0u,is>::value...}
-    {
-        if (endbits > 0)
-            m_arr[length-1] &= lowmask<endbits>::mask;
-    }
-
     //! Initialize from an array of chunk_type
     template <std::size_t... is>
     constexpr BitArray(std::index_sequence<is...>, chunk_type const (&arr)[sizeof...(is)])
-      : BitArray(arr[is]...)
+      : m_arr{arr[is]...}
     {}
 
 public:
-    /** Constructor and Destructor **/
+    /** Constructors **/
     //! Default constructor.
-    //! Bits are cleared to 0.
+    //! Bits are cleared to 0 since array elements are initialized in the same way as objects with static durations.
     constexpr BitArray() noexcept
-      : BitArray(std::make_index_sequence<length>())
+      : m_arr{}
     {}
 
     //! Can be constructed from chunk_type.
     constexpr BitArray(chunk_type x0) noexcept
-      : BitArray(std::make_index_sequence<(length>0 ? length-1 : 0)>(), x0)
+      : m_arr{static_cast<chunk_type>(x0 & get_mask(0))}
     {}
 
     //! Can be constructed from smaller BitArray with same chunk_type.
@@ -87,17 +84,37 @@ public:
     {}
 
     //! Construct from a sequence of chunk_type's.
+    //! A version for the case where the last byte doesn't need rounding.
     template <
         class... Ts,
         std::enable_if_t<
-            (sizeof...(Ts)+2 <= length) &&
-            bord2::all_of<std::is_same<std::decay_t<Ts>,chunk_type>::value...>::value,
+            bord2::allTrue({
+                    sizeof...(Ts)+2 <= length,
+                    sizeof...(Ts)+2 < length || endbits == 0,
+                    std::is_convertible<Ts,chunk_type>::value...}),
             int
             > = 0
         >
     constexpr BitArray(chunk_type x0, chunk_type x1, Ts... xs) noexcept
-    : BitArray(std::make_index_sequence<(length>=(sizeof...(Ts)+2) ? (length-sizeof...(Ts)-2) : 0)>(), x0, x1, xs...)
+      : m_arr{x0, x1, xs...}
+    {}
+
+    //! Construct from a sequence of chunk_type's.
+    //! A version for the case where the last byte needs rounding.
+    template <
+        class... Ts,
+        std::enable_if_t<
+            bord2::allTrue({
+                    sizeof...(Ts)+2 <= length,
+                    sizeof...(Ts)+2 == length && endbits > 0,
+                    std::is_convertible<Ts,chunk_type>::value...}),
+            int
+            > = 0
+        >
+    constexpr BitArray(chunk_type x0, chunk_type x1, Ts... xs) noexcept
+      : m_arr{x0, x1, xs...}
     {
+        m_arr[length-1] &= lowmask<endbits>::mask;
     }
 
     //! Copy constructor is the default one.
@@ -111,7 +128,7 @@ public:
     constexpr void set(std::size_t pos, bool value = true) noexcept
     {
         // If the position is out-of-range, nothing happen.
-        if (pos > numbits)
+        if (pos >= numbits)
             return;
 
         std::size_t gpos = pos / chunkbits;
@@ -250,8 +267,11 @@ public:
     template<size_t M, std::enable_if_t<(M<N),int> = 0>
     constexpr BitArray<N,T>& operator=(BitArray<M,T> const &src) noexcept
     {
-        for(size_t i=0; i < BitArray<M,T>::length; ++i)
-            m_arr[i] = src.m_arr[i];
+        std::fill(
+            std::copy(std::begin(src.m_arr),
+                      std::end(src.m_arr),
+                      std::begin(m_arr) ),
+            std::end(m_arr), 0);
 
         return *this;
     }
@@ -283,12 +303,10 @@ public:
 
     constexpr bool operator==(BitArray<N,T> const &other) const noexcept
     {
-        bool result = true;
-
         for(std::size_t i = 0; i < length; ++i)
-            result &= (m_arr[i] == other.m_arr[i]);
+            if(m_arr[i] != other.m_arr[i]) return false;
 
-        return result;
+        return true;
     }
 
     constexpr bool operator!=(BitArray<N,T> const &other) const noexcept
@@ -296,19 +314,25 @@ public:
         return !((*this)==other);
     }
 
-    constexpr BitArray<N,T> operator&(BitArray<N,T> const &other) const noexcept
+    constexpr BitArray<N,T>& operator&=(BitArray<N,T> const &other) noexcept
     {
-        return and_impl(other, std::make_index_sequence<length>());
+        for(size_t i = 0; i < length; ++i)
+            m_arr[i] &= other.m_arr[i];
+        return *this;
     }
 
-    constexpr BitArray<N,T> operator|(BitArray<N,T> const &other) const noexcept
+    constexpr BitArray<N,T>& operator|=(BitArray<N,T> const &other) noexcept
     {
-        return or_impl(other, std::make_index_sequence<length>());
+        for(size_t i = 0; i < length; ++i)
+            m_arr[i] |= other.m_arr[i];
+        return *this;
     }
 
-    constexpr BitArray<N,T> operator^(BitArray<N,T> const &other) const noexcept
+    constexpr BitArray<N,T>& operator^=(BitArray<N,T> const &other) noexcept
     {
-        return xor_impl(other, std::make_index_sequence<length>());
+        for(size_t i = 0; i < length; ++i)
+            m_arr[i] ^= other.m_arr[i];
+        return *this;
     }
 
     constexpr BitArray<N,T> operator~() const noexcept
@@ -350,8 +374,8 @@ protected:
 
         return BitArray<n,T>{static_cast<chunk_type>(
                 gpos+is >= length
-                ? 0
-                : ((m_arr[gpos+is] >> lpos) | (gpos+is+1>=length ? 0u : (m_arr[gpos+is+1] << (chunkbits-lpos)))) & (BitArray<n,T>::get_mask(is))
+                ? 0u
+                : ((m_arr[gpos+is] >> lpos) | (gpos+is+1>=length ? 0u : (m_arr[gpos+is+1] << (chunkbits-lpos))))
                 )...};
     }
 
@@ -390,27 +414,9 @@ protected:
     }
 
     template <std::size_t... is>
-    constexpr BitArray<N,T> and_impl(BitArray<N,T> const &other, std::index_sequence<is...>) const noexcept
-    {
-        return BitArray<N,T>(static_cast<chunk_type>(m_arr[is] & other.m_arr[is])...);
-    }
-
-    template <std::size_t... is>
-    constexpr BitArray<N,T> or_impl(BitArray<N,T> const &other, std::index_sequence<is...>) const noexcept
-    {
-        return BitArray<N,T>(static_cast<chunk_type>(m_arr[is] | other.m_arr[is])...);
-    }
-
-    template <std::size_t... is>
-    constexpr BitArray<N,T> xor_impl(BitArray<N,T> const &other, std::index_sequence<is...>) const noexcept
-    {
-        return BitArray<N,T>(static_cast<chunk_type>((m_arr[is] ^ other.m_arr[is]) & get_mask(is)) ...);
-    }
-
-    template <std::size_t... is>
     constexpr BitArray<N,T> not_impl(std::index_sequence<is...>) const noexcept
     {
-        return BitArray<N,T>(static_cast<chunk_type>((~m_arr[is]) & get_mask(is))...);
+        return BitArray<N,T>(static_cast<chunk_type>(~m_arr[is])...);
     }
 
     template<std::size_t... is>
@@ -441,6 +447,27 @@ protected:
         );
     }
 };
+
+template<size_t N, class T>
+constexpr BitArray<N,T> operator&(BitArray<N,T> lhs, BitArray<N,T> const& rhs) noexcept
+{
+    lhs &= rhs;
+    return lhs;
+}
+
+template<size_t N, class T>
+constexpr BitArray<N,T> operator|(BitArray<N,T> lhs, BitArray<N,T> const& rhs) noexcept
+{
+    lhs |= rhs;
+    return lhs;
+}
+
+template<size_t N, class T>
+constexpr BitArray<N,T> operator^(BitArray<N,T> lhs, BitArray<N,T> const& rhs) noexcept
+{
+    lhs ^= rhs;
+    return lhs;
+}
 
 template<class C, size_t N, class T>
 std::ostream& operator<<(std::basic_ostream<C>& out, BitArray<N,T> const& bit)

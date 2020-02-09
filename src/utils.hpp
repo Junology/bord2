@@ -20,18 +20,14 @@ namespace bord2 {
  * \section Convenient type traits
  ************************************/
 
-//! The type which verifies all the template parameters are true.
-template <bool... bs>
-struct all_of;
+template <class...>
+using void_t = void;
 
-template <>
-struct all_of<> : std::true_type {};
-
-template <bool... bs>
-struct all_of<false, bs...> : std::false_type {};
-
-template <bool... bs>
-struct all_of<true, bs...> : all_of<bs...> {};
+constexpr bool allTrue(std::initializer_list<bool>&& flags) noexcept {
+    for(auto& flag : flags)
+        if (!flag) return false;
+    return true;
+}
 
 //! Check if a class is publically derived from a template class
 template <template <class...> class TBase, class Derived>
