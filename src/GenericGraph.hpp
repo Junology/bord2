@@ -140,7 +140,9 @@ class GenericGraph
     static_assert(std::is_default_constructible<typename Set::key_type>::value,
                   "key_type is not default constructible.");
     static_assert(std::is_default_constructible<KeyHolder>::value,
-                  "The keygenrator is not default constructible");
+                  "The keygenrator is not default constructible.");
+    static_assert(std::is_copy_constructible<KeyHolder>::value,
+                  "The keygenerator is not copy-constructible.");
 
 public:
     using vertex_type = Set;
@@ -262,6 +264,38 @@ public:
         // Not found
         else
             return nullptr;
+    }
+
+    //! Find a univalent vertex in the graph.
+    std::pair<bool, key_type> findEnd() const noexcept {
+        KeyHolder holder = m_keyholder;
+        std::map<key_type, size_t> cntmap;
+
+        // Add every reserved keys to a map.
+        while(!holder.empty()) {
+            auto key = holder.take();
+            cntmap.emplace_hint(cntmap.end(), key, 0);
+            holder.release(key);
+        }
+
+        // Count how many times a vertex appears as an end of edges.
+        std::for_each(
+            m_edges.begin(), m_edges.end(),
+            [&cntmap](std::pair<key_type, key_type> const& e) {
+                ++(cntmap[e.first]);
+                ++(cntmap[e.second]);
+            } );
+
+        // Find a vertex appearing only once.
+        auto itr = std::find_if(
+            cntmap.begin(), cntmap.end(),
+            [](std::pair<key_type, size_t> const& v) {
+                return v.second == 1;
+            } );
+
+        return (itr == cntmap.end())
+            ? std::pair<bool, key_type>{false, key_type{}}
+            : std::pair<bool, key_type>{true, itr->first};
     }
 
     //! Trim a connected component containing the vertex associated with the given key.

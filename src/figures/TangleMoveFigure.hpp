@@ -111,7 +111,7 @@ public:
                 return p(0)*m_baseX + p(1)*m_baseY + orig;
             }
         };
-        PlTangFigure<R,C> pltangfig{m_tangDom, Eigen::Vector2d(1,0), Eigen::Vector2d(0,1)};
+        PlTangFigure pltangfig{m_tangDom, Eigen::Vector2d(1,0), Eigen::Vector2d(0,1)};
 
         adpscheme.setPen(2, bord2::Red);
         pltangfig.draw(adpscheme);

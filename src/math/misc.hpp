@@ -41,7 +41,7 @@ Eigen::Matrix<T,n+1,1> affWrap(Eigen::Matrix<T,n,1> const &mat)
 
 //! Check if two triangles overwraps with each other.
 //! Based on the idea suggested in https://stackoverflow.com/questions/2778240/detection-of-triangle-collision-in-2d-space.
-bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, std::array<Eigen::Vector2d,3> const &t2_)
+inline bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, std::array<Eigen::Vector2d,3> const &t2_)
 {
     /*** Preparation ***/
     // Rotation matrix of M_PI/2 in radian.
@@ -51,13 +51,13 @@ bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, std::arra
     // We may assume the vertices are given counter-clockwisely around triangles.
     bool is_ccwise1 = static_cast<double>((t1_[2]-t1_[0]).adjoint()*mat*(t1_[1]-t1_[0])) > 0;
     bool is_ccwise2 = static_cast<double>((t2_[2]-t2_[0]).adjoint()*mat*(t2_[1]-t2_[0])) > 0;
-    std::array<std::array<Eigen::Vector2d const&, 3>,2> t{
-        t1_[0],
-        is_ccwise1 ? t1_[1] : t1_[2],
-        is_ccwise1 ? t1_[2] : t1_[1],
-        t2_[0],
-        is_ccwise ? t2_[1] : t2_[2],
-        is_ccwise ? t2_[2] : t2_[1]
+    std::array<std::array<Eigen::Vector2d const*, 3>,2> t{
+        &(t1_[0]),
+        is_ccwise1 ? &(t1_[1]) : &(t1_[2]),
+        is_ccwise1 ? &(t1_[2]) : &(t1_[1]),
+        &(t2_[0]),
+        is_ccwise2 ? &(t2_[1]) : &(t2_[2]),
+        is_ccwise2 ? &(t2_[2]) : &(t2_[1])
     };
 
     /*** The algorithm begins here ***/
@@ -70,7 +70,7 @@ bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, std::arra
         for(size_t i = 0; i < 3; ++i) {
             bool is_separated = false;
             for(size_t j = 0; j < 3; ++j) {
-                is_separated ||= (static_cast<double>((t[n][(i+1)%3]-t[n][i]).adjoint()*mat*(t[m][j]-t[n][i])) < 0);
+                is_separated |= (static_cast<double>((*(t[n][(i+1)%3])-*(t[n][i])).adjoint()*mat*(*(t[m][j])-*(t[n][i]))) < 0);
             }
             if(is_separated)
                 return false;

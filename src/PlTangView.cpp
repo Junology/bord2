@@ -38,7 +38,7 @@ renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint bas
     if(!scheme.isvalid())
         return false;
 
-    PlTangFigure<MR,MC> pltangfig{
+    PlTangFigure pltangfig{
         tang,
         Eigen::Vector2d(baseX.x, baseX.y),
         Eigen::Vector2d(baseY.x, baseY.y)
