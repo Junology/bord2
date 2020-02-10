@@ -135,33 +135,6 @@ public:
         mp_gc->FillPath(*mp_path);
     }
 
-    /* Path elements.
-    //! Move the current position.
-    virtual void moveTo(vertex_type const &p) override {
-        mp_path->MoveToPoint(p[0], p[1]);
-    }
-
-    //! Move the current position drawing a line from the old.
-    virtual void lineTo(vertex_type const &p) override {
-        mp_path->AddLineToPoint(p[0],p[1]);
-    }
-
-    //! Move the current position drawing a cubic Bezier curve.
-    virtual void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) override {
-        mp_path->AddCurveToPoint(c1[0], c1[1], c2[0], c2[1], p[0], p[1]);
-    }
-
-    //! Move the current position drawing a quadratic Bezier curve.
-    virtual void qbezierTo(vertex_type const &c, vertex_type const &p) override {
-        mp_path->AddQuadCurveToPoint(c[0], c[1], p[0], p[1]);
-    }
-
-    //! Close path.
-    virtual void closePath() override {
-        mp_path->CloseSubpath();
-    }
-    */
-
 protected:
     using PathElement = PathScheme<vertex_type>::PathElement;
 

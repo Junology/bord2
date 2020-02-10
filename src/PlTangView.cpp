@@ -28,7 +28,7 @@ template<size_t MR, size_t MC>
 static bool
 renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint baseX, wxPoint baseY)
 {
-    AdapterScheme<std::array<double,2>, Eigen::Vector2d> scheme{
+    AdapterScheme<WxGSScheme, Eigen::Vector2d> scheme{
         new WxGSScheme(dc),
             [](Eigen::Vector2d vec) {
             return std::array<double,2>{vec(0), vec(1)};

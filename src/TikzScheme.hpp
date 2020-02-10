@@ -115,45 +115,6 @@ public:
     //! Fill without flush
     void fillPres() override;
 
-    /* Path elements.
-    //! Move the current position.
-    virtual void moveTo(vertex_type const &p) override {
-        m_path.push_back(PathElement{PathElement::BeginPoint, {p}});
-    }
-
-    //! Move the current position drawing a line from the old.
-    virtual void lineTo(vertex_type const &p) override {
-        m_path.push_back(PathElement{PathElement::LineEnd, {p}});
-    }
-
-    //! Move the current position drawing a cubic Bezier curve.
-    virtual void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) override {
-        m_path.push_back(
-            PathElement{
-                PathElement::BezierEnd,
-                {c1, c2, p}
-            });
-    }
-
-    //! Move the current position drawing a quadratic Bezier curve.
-    virtual void qbezierTo(vertex_type const &c, vertex_type const &p) override {
-        m_path.push_back(
-            PathElement{
-                PathElement::QBezierEnd,
-                {c, p}
-            });
-    }
-
-    //! Close path.
-    virtual void closePath() override {
-        m_path.push_back(
-            PathElement{
-                PathElement::LineEnd,
-                {m_path.front().v[0]}
-            });
-    }
-    */
-
 protected:
     virtual void putPathElement(PathElement const& elem) override {
         if(elem.type == bord2::PathElemType::Closing) {

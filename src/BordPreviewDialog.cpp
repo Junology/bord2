@@ -12,7 +12,7 @@
 #include <Eigen/Dense>
 
 #include "TikzScheme.hpp"
-#include "OrthoSpatialScheme.hpp"
+#include "ProjSpatialScheme.hpp"
 #include "ROEntryDialog.hpp"
 
 wxIMPLEMENT_DYNAMIC_CLASS(BordPreviewDialog, wxFrame);
@@ -58,14 +58,15 @@ void BordPreviewDialog::OnTikz(wxCommandEvent &event)
     double elev = m_drawPane->getElev();
     double azim = m_drawPane->getAzim();
 
-    OrthoSpatialScheme<TikzScheme> scheme{
+    ProjSpatialScheme<TikzScheme> scheme{
         Eigen::Vector3d{
             m_drawPane->getFocus()[0],
             m_drawPane->getFocus()[1],
             m_drawPane->getFocus()[2]
-        },
-        elev, azim
+        }
     };
+
+    scheme.ortho(elev, azim);
 
     m_drawPane->getFigure()->draw(scheme);
     ROEntryDialog dlg(

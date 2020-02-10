@@ -12,6 +12,8 @@
 #include <memory>
 #include <functional>
 
+#include "utils.hpp"
+
 namespace bord2 {
 
 //! The list of colors (borrowed from TikZ).
@@ -56,8 +58,11 @@ enum PathElemType {
 //! Interface class providing path-based rendering.
 template<class T>
 class PathScheme {
-    template <class U>
+    template <class>
     friend class PathScheme;
+
+    template <class, class>
+    friend class AdapterScheme;
 
 public:
     using vertex_type = T;
@@ -142,17 +147,19 @@ protected:
 //! Adapter connecting PathScheme with different vertex_type.
 //! \tparam U The vertex_type of an underlying PathScheme.
 //! \tparam V The target vertex_type.
-template <class U, class V>
+template <class Base, class V>
 class AdapterScheme : public PathScheme<V>
 {
+    static_assert(bord2::is_pubbase_of_template<PathScheme,Base>::value, "The first template parameter is not derived from PathScheme<...>.");
 public:
-    using BBoxT = typename PathScheme<V>::BBoxT;
-    using source_vertex_type = U;
-    using target_vertex_type = V;
+    using typename PathScheme<V>::BBoxT;
+    using BaseScheme = Base;
+    using base_vertex_type = typename BaseScheme::vertex_type;
+    using vertex_type = V;
 
 private:
-    std::unique_ptr<PathScheme<U>> m_scheme;
-    std::function<U(V)> m_f;
+    std::unique_ptr<BaseScheme> m_scheme;
+    std::function<base_vertex_type(V)> m_f;
 
 public:
 
@@ -160,7 +167,7 @@ public:
     //! \param scheme A pointer to an instance of the underlying scheme. Note that it is stored in std::unique_ptr, so the user must not delete it. Ideally, it is passed directly by new operator. If you reuse the pointer, \see release().
     //! \param f An adapter of two vertex_type.
     template <class F>
-    AdapterScheme(PathScheme<U> *p_scheme, F&& f)
+    AdapterScheme(BaseScheme *p_scheme, F&& f)
         : m_scheme(p_scheme), m_f(std::forward<F>(f))
     {}
 
@@ -172,9 +179,14 @@ public:
     //! Destructor.
     virtual ~AdapterScheme() = default;
 
+    //! Get the pointer to the underlying scheme
+    BaseScheme const* getBase() const noexcept {
+        return m_scheme.get();
+    }
+
     //! Release the pointer.
     //! This function just calls std::unique_ptr::release().
-    PathScheme<U>* release() {
+    BaseScheme* release() {
         return m_scheme.release();
     }
 
@@ -197,7 +209,7 @@ public:
         m_scheme->setBrush(col);
     }
 
-    virtual void translate(target_vertex_type const &p) override {
+    virtual void translate(vertex_type const &p) override {
         m_scheme->translate(m_f(p));
     }
 
@@ -234,8 +246,8 @@ public:
     virtual void closePath() { m_scheme->closePath(); }
     */
 protected:
-    virtual void putPathElement(typename PathScheme<target_vertex_type>::PathElement const& elem) override {
-        m_scheme->putPathElement({elem.type, {m_f(elem.v[0]), m_f(elem.v[1]), m_f(elem.v[2])}});
+    virtual void putPathElement(typename PathScheme<vertex_type>::PathElement const& elem) override {
+        static_cast<PathScheme<base_vertex_type>*>(m_scheme.get())->putPathElement({elem.type, {m_f(elem.v[0]), m_f(elem.v[1]), m_f(elem.v[2])}});
     }
 };
 

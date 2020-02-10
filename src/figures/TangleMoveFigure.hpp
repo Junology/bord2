@@ -105,7 +105,7 @@ public:
             - (static_cast<double>(m_tangDom.vlength())/2.0*m_baseY)
             - (static_cast<double>(m_moves.size())/2.0*m_baseZ);
 
-        AdapterScheme<Eigen::Vector3d, Eigen::Vector2d> adpscheme{
+        AdapterScheme<PathScheme<Eigen::Vector3d>, Eigen::Vector2d> adpscheme{
             &scheme,
                 [this, &orig](Eigen::Vector2d const&p) {
                 return p(0)*m_baseX + p(1)*m_baseY + orig;

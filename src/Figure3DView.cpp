@@ -11,7 +11,7 @@
 #include <wx/graphics.h>
 
 #include "WxGSScheme.hpp"
-#include "OrthoSpatialScheme.hpp"
+#include "ProjSpatialScheme.hpp"
 
 #include "figures/figures.hpp"
 
@@ -88,9 +88,9 @@ void Figure3DView::render(wxWindowDC &&dc)
     dc.SetBackground(*wxWHITE_BRUSH);
     dc.Clear();
 
-    OrthoSpatialScheme<WxGSScheme> wxgsOrtho{
-        Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]},
-            m_elev, m_azim, std::move(dc)};
+    ProjSpatialScheme<WxGSScheme> wxgsOrtho{
+        Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]}, std::move(dc)};
+    wxgsOrtho.ortho(m_elev, m_azim);
 
     mp_fig->draw(wxgsOrtho);
 }
