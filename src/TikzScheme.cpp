@@ -127,21 +127,21 @@ static std::string realizePath(std::vector<TikzScheme::PathElement> const& path)
 
     for(auto elem : path) {
         switch (elem.type) {
-        case TikzScheme::PathElement::BeginPoint:
+        case bord2::PathElemType::BeginPoint:
             oss << " " << elem.v[0];
             break;
 
-        case TikzScheme::PathElement::LineEnd:
+        case bord2::PathElemType::Line:
             oss << " -- " << elem.v[0];
             break;
 
-        case TikzScheme::PathElement::BezierEnd:
+        case bord2::PathElemType::Bezier:
             oss << " .. controls "
                 << elem.v[0] << "and" << elem.v[1]
                 << " .. " << elem.v[2];
             break;
 
-        case TikzScheme::PathElement::QBezierEnd:
+        case bord2::PathElemType::QBezier:
             oss << " to[quadratic={" << elem.v[0] << "}] " << elem.v[1];
             break;
 

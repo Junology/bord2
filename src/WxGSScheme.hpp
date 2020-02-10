@@ -135,7 +135,7 @@ public:
         mp_gc->FillPath(*mp_path);
     }
 
-    //* Path elements.
+    /* Path elements.
     //! Move the current position.
     virtual void moveTo(vertex_type const &p) override {
         mp_path->MoveToPoint(p[0], p[1]);
@@ -160,4 +160,10 @@ public:
     virtual void closePath() override {
         mp_path->CloseSubpath();
     }
+    */
+
+protected:
+    using PathElement = PathScheme<vertex_type>::PathElement;
+
+    virtual void putPathElement(PathElement const& elem) override;
 };

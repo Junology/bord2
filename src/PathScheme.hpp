@@ -43,15 +43,25 @@ enum StrokePattern {
     Dashed
 };
 
+enum PathElemType {
+    BeginPoint,
+    Line,
+    Bezier,
+    QBezier,
+    Closing
+};
+
 } // end namespace bord2
 
 //! Interface class providing path-based rendering.
 template<class T>
 class PathScheme {
+    template <class U>
+    friend class PathScheme;
+
 public:
     using vertex_type = T;
 
-    PathScheme() = default;
     virtual ~PathScheme() = default;
 
     //* Scheme data query
@@ -92,15 +102,41 @@ public:
 
     //* Path elements.
     //! Move the current position.
-    virtual void moveTo(vertex_type const &p) = 0;
+    void moveTo(vertex_type const &p) {
+        putPathElement({bord2::PathElemType::BeginPoint, {p}});
+    }
+
     //! Move the current position drawing a line from the old.
-    virtual void lineTo(vertex_type const &p) = 0;
+    void lineTo(vertex_type const &p) {
+        putPathElement({bord2::PathElemType::Line, {p}});
+    }
+
     //! Move the current position drawing a cubic Bezier curve.
-    virtual void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) = 0;
+    void bezierTo(vertex_type const &c1, vertex_type const &c2, vertex_type const &p) {
+        putPathElement({bord2::PathElemType::Bezier, {c1, c2, p}});
+    }
+
     //! Move the current position drawing a quadratic Bezier curve.
-    virtual void qbezierTo(vertex_type const &c, vertex_type const &p) = 0;
+    void qbezierTo(vertex_type const &c, vertex_type const &p) {
+        putPathElement({bord2::PathElemType::QBezier, {c, p}});
+    }
+
     //! Close path.
-    virtual void closePath() = 0;
+    void closePath() {
+        putPathElement({bord2::PathElemType::Closing, {}});
+    }
+
+protected:
+    //! Elementary components constituting paths
+    struct PathElement {
+        bord2::PathElemType type = bord2::PathElemType::BeginPoint;
+        std::array<vertex_type, 3> v{};
+    };
+
+    //! Put a path-element.
+    //! This is a pure-virtual function and realize NVI (Non-Virtual Interface) on drawing paths.
+    //! \warning Notice that this class still has several virtual interfaces; in particular functions to determine *how paths should be rendered*.
+    virtual void putPathElement(PathElement const& elem) = 0;
 };
 
 //! Adapter connecting PathScheme with different vertex_type.
@@ -178,6 +214,7 @@ public:
     virtual void fill() override { m_scheme->fill(); }
     virtual void fillPres() override { m_scheme->fillPres(); }
 
+    /*
     virtual void moveTo(target_vertex_type const &p) {
         m_scheme->moveTo(m_f(p));
     }
@@ -195,6 +232,11 @@ public:
     }
 
     virtual void closePath() { m_scheme->closePath(); }
+    */
+protected:
+    virtual void putPathElement(typename PathScheme<target_vertex_type>::PathElement const& elem) override {
+        m_scheme->putPathElement({elem.type, {m_f(elem.v[0]), m_f(elem.v[1]), m_f(elem.v[2])}});
+    }
 };
 
 //! Base class for figures which draw themselves using PathScheme.
@@ -204,7 +246,6 @@ public:
     using vertex_type = T;
     using SchemeType = PathScheme<vertex_type>;
 
-    PathFigure() = default;
     virtual ~PathFigure() = default;
 
     virtual void draw(SchemeType&) const = 0;

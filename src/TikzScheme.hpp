@@ -18,18 +18,7 @@ class TikzScheme : public PathScheme<std::array<double,2>>
 {
 public:
     using vertex_type = PathScheme<std::array<double, 2>>::vertex_type;
-
-    struct PathElement {
-        enum PathElemType {
-            BeginPoint,
-            LineEnd,
-            BezierEnd,
-            QBezierEnd
-        } type = BeginPoint;
-        std::array<std::array<double,2>, 3> v{};
-        constexpr PathElement() noexcept = default;
-        constexpr PathElement(PathElement const&) noexcept = default;
-    };
+    using PathElement = PathScheme<vertex_type>::PathElement;
 
     struct PathState {
         bord2::PathColor pencolor = bord2::Black;
@@ -126,7 +115,7 @@ public:
     //! Fill without flush
     void fillPres() override;
 
-    //* Path elements.
+    /* Path elements.
     //! Move the current position.
     virtual void moveTo(vertex_type const &p) override {
         m_path.push_back(PathElement{PathElement::BeginPoint, {p}});
@@ -162,5 +151,16 @@ public:
                 PathElement::LineEnd,
                 {m_path.front().v[0]}
             });
+    }
+    */
+
+protected:
+    virtual void putPathElement(PathElement const& elem) override {
+        if(elem.type == bord2::PathElemType::Closing) {
+            m_path.push_back(
+                PathElement{bord2::PathElemType::Line, {m_path.front().v[0]}});
+        }
+        else
+            m_path.push_back(elem);
     }
 };

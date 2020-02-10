@@ -154,7 +154,7 @@ public:
         mp_base->fillPres();
     }
 
-    //* Path elements.
+    /* Path elements.
     //! Move the current position.
     virtual void moveTo(vertex_type const &p) override {
         auto p2d = project(p);
@@ -192,5 +192,13 @@ public:
     //! Close path.
     virtual void closePath() override {
         mp_base->closePath();
+    }
+    */
+protected:
+    using typename PathScheme<Eigen::Vector3d>::PathElement;
+
+    virtual void putPathElement(PathElement const& elem) override {
+        mp_base->putPathElement(
+            {elem.type, {project(elem.v[0]), project(elem.v[1]), project(elem.v[2])}});
     }
 };

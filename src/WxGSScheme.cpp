@@ -10,7 +10,7 @@
 
 #include "WxGSScheme.hpp"
 
-// #include <iostream>
+#include <iostream> // To output error messages.
 // #include <cmath>
 // #include <wx/gdicmn.h>
 
@@ -82,3 +82,38 @@ wxColour getWxColor(const bord2::PathColor &col)
         return wxColour();
     }
 }
+
+void WxGSScheme::putPathElement(PathElement const& elem)
+{
+    switch(elem.type) {
+    case bord2::PathElemType::BeginPoint:
+        mp_path->MoveToPoint(elem.v[0][0], elem.v[0][1]);
+        break;
+
+    case bord2::PathElemType::Line:
+        mp_path->AddLineToPoint(elem.v[0][0], elem.v[0][1]);
+        break;
+
+    case bord2::PathElemType::Bezier:
+        mp_path->AddCurveToPoint(
+            elem.v[0][0], elem.v[0][1],
+            elem.v[1][0], elem.v[1][1],
+            elem.v[2][0], elem.v[2][1] );
+        break;
+
+    case bord2::PathElemType::QBezier:
+        mp_path->AddQuadCurveToPoint(
+            elem.v[0][0], elem.v[0][1],
+            elem.v[1][0], elem.v[1][1] );
+        break;
+
+    case bord2::PathElemType::Closing:
+        mp_path->CloseSubpath();
+        break;
+
+    default:
+        std::cerr << "Unknown path-element is ignored." << std::endl;
+        std::cerr << "PathElemType: " << elem.type << std::endl;
+    }
+}
+
