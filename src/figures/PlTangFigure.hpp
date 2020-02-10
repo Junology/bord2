@@ -82,10 +82,20 @@ public:
 
             auto maybe_end = gcomp.findEnd();
             size_t key = maybe_end.first ? maybe_end.second : gcomp.minkey();
+            int hflags[2] = {0, 0};
+
             auto last = gcomp.trackPath(
                 key,
-                [&](std::pair<size_t, StrandJoint> const& val) {
-                    this->m_components.back().push_back(val.second);
+                [&hflags, this](std::pair<size_t, StrandJoint> const& val) {
+                    int nextflag = (val.second.pos & 0x3) ? 1 : -1;
+
+                    if(hflags[0] == hflags[1] && hflags[1] == nextflag)
+                        this->m_components.back().back() = val.second;
+                    else
+                        this->m_components.back().push_back(val.second);
+
+                    hflags[0] = hflags[1];
+                    hflags[1] = nextflag;
                 } );
 
             if (last.first) {
@@ -108,6 +118,7 @@ public:
 
             // Check if path[0].pos is Left or Right.
             bool is_hor_prev = static_cast<bool>(path[0].pos & 0x3);
+            
             for(size_t i = 1; i < path.size(); ++i) {
                 // Check if path[i].pos is Left or Right.
                 bool is_hor = static_cast<bool>(path[i].pos & 0x3);
