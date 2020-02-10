@@ -15,6 +15,7 @@
 #endif
 
 #include <vector>
+#include <sstream>
 
 #include "config.hpp"
 #include "PlTangMove.hpp"
@@ -29,23 +30,17 @@ public:
         Col_YCoord,
         Col_Max
     };
+
 protected:
-    struct MoveListElem {
+    struct MoveElem {
         PlTangMove<2,2> move;
         size_t x, y;
-
-        MoveListElem() noexcept = default;
-        constexpr MoveListElem(PlTangMove<2,2> const& move0, size_t x0, size_t y0) noexcept
-        : move(move0), x(x0), y(y0)
-        {}
-
-        MoveListElem(MoveListElem const&) noexcept = default;
-        MoveListElem(MoveListElem &&) noexcept = default;
-        ~MoveListElem() noexcept = default;
     };
 
+    using MoveSeq = std::vector<MoveElem>;
+
 private:
-    std::vector<MoveListElem> m_elems;
+    std::vector<MoveSeq> m_mvseqs;
 
 public:
     MoveListModel() noexcept
@@ -54,25 +49,25 @@ public:
 
     virtual ~MoveListModel() = default;
 
-    void append(MoveListElem const& elem) noexcept {
-        m_elems.push_back(elem);
+    void append(MoveSeq const& seq) noexcept {
+        m_mvseqs.emplace_back(seq.begin(), seq.end());
         wxDataViewVirtualListModel::RowAppended();
     }
 
     void emplace_back(PlTangMove<2,2> const& move, size_t x, size_t y) noexcept {
-        m_elems.emplace_back(move, x, y);
+        m_mvseqs.push_back({MoveElem{move, x, y}});
         wxDataViewVirtualListModel::RowAppended();
     }
 
     void pop_back() noexcept {
-        if (m_elems.size() > 0) {
-            m_elems.pop_back();
-            wxDataViewVirtualListModel::RowDeleted(m_elems.size());
+        if (m_mvseqs.size() > 0) {
+            m_mvseqs.pop_back();
+            wxDataViewVirtualListModel::RowDeleted(m_mvseqs.size());
         }
     }
 
     void reset() noexcept {
-        m_elems.clear();
+        m_mvseqs.clear();
         wxDataViewVirtualListModel::Reset(0);
     }
 
@@ -92,27 +87,37 @@ public:
 
     virtual void GetValueByRow(wxVariant &variant, unsigned int row, unsigned int col) const override
     {
-        if (row >= m_elems.size()) {
+        if (row >= m_mvseqs.size()) {
             wxFAIL_MSG("Invalid row");
             return;
         }
 
-        switch(col) {
-        case Col_MoveName:
-            variant = wxString(m_elems[row].move.getName());
-            break;
+        std::vector<std::string> attrs{};
+        for(auto& mvelem : m_mvseqs[row]) {
+            switch(col) {
+            case Col_MoveName:
+                attrs.push_back(mvelem.move.getName());
+                break;
 
-        case Col_XCoord:
-            variant = (wxString() << m_elems[row].x);
-            break;
+            case Col_XCoord:
+                attrs.push_back(std::to_string(mvelem.x));
+                break;
 
-        case Col_YCoord:
-            variant = (wxString() << m_elems[row].y);
-            break;
+            case Col_YCoord:
+                attrs.push_back(std::to_string(mvelem.y));
+                break;
 
-        default:
-            wxFAIL_MSG("Invalid column");
+            default:
+                wxFAIL_MSG("Invalid column");
+                return;
+            }
         }
+        std::ostringstream oss;
+        std::copy(
+            attrs.begin(), attrs.end(),
+            std::ostream_iterator<std::string>(oss, "\n"));
+
+        variant = wxString(oss.str());
     }
 
     //! Changing value is prohibited.
