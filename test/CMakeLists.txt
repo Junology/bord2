@@ -16,6 +16,7 @@ if(GTEST_FOUND)
 	test_graph.cpp
 	test_genericgraph.cpp
 	test_solvers.cpp
+	test_math.cpp
 	test_affhyp.cpp
 	test_bezier.cpp
 	test_quadcurve.cpp
