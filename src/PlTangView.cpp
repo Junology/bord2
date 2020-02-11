@@ -53,26 +53,26 @@ renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint bas
 
 bool PlTangView::undo(bool invoke) noexcept
 {
-    if (m_moveHistory.empty())
+    if (m_cur == m_moveHistory.begin())
         return false;
 
-    auto& movedt = m_moveHistory.top();
-    applyMove(movedt.index, movedt.x, movedt.y, true);
-    m_moveHistory.pop();
-    m_moveRedoers.push(movedt);
+    --m_cur;
+
+    // Reverse the last move.
+    m_pltang.replace(m_cur->x, m_cur->y, m_moveDict[m_cur->index].getBefore());
 
     return true;
 }
 
 bool PlTangView::redo(bool invoke) noexcept
 {
-    if (m_moveRedoers.empty())
+    if (m_cur == m_moveHistory.end())
         return false;
 
-    auto& movedt = m_moveRedoers.top();
-    applyMove(movedt.index, movedt.x, movedt.y, false);
-    m_moveRedoers.pop();
-    m_moveHistory.push(movedt);
+    // Apply the next move.
+    m_pltang.replace(m_cur->x, m_cur->y, m_moveDict[m_cur->index].getAfter());
+
+    ++m_cur;
 
     return true;
 }
@@ -89,25 +89,25 @@ bool PlTangView::applyMove(const std::string &name, size_t x, size_t y, bool inv
         }
     }
 
-    if (i==m_moveDict.size() || !applyMove(i, x, y, invoke)) {
-        return false;
-    }
-
-    //! Clear the redo stack.
-    if (!m_moveRedoers.empty())
-        m_moveRedoers = {};
-
-    m_moveHistory.emplace(i,x,y);
-
-    return true;
+    return applyMove(i, x, y, invoke);
 }
 
 bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert, bool invoke) noexcept
 {
+    if (i >= m_moveDict.size())
+        return false;
+
+    // Apply the move
     auto newloc
         = revert ? m_moveDict[i].getBefore() : m_moveDict[i].getAfter();
 
     m_pltang.replace(x, y, newloc);
+
+    // Clear the old "future" in the history
+    m_moveHistory.erase(m_cur, m_moveHistory.end());
+    // Add new move to the history.
+    m_moveHistory.emplace_back(i,x,y);
+    m_cur = m_moveHistory.end();
 
     //! Invoke event
     if (invoke) {
@@ -226,13 +226,8 @@ void PlTangView::OnMouseLeft(wxMouseEvent& event) noexcept
 
         if(popup->GetMenuItemCount() > 0) {
             popup->Bind(wxEVT_COMMAND_MENU_SELECTED, [&popup,this](wxCommandEvent& ev) {
-                    //! Clear the redo stack.
-                    if (!m_moveRedoers.empty())
-                        m_moveRedoers = {};
-
-                    m_moveHistory.emplace(ev.GetId(), m_curx-1, m_cury-1);
-                    this->applyMove(ev.GetId(), m_curx-1, m_cury-1);
-                    this->Refresh();
+                    applyMove(ev.GetId(), m_curx-1, m_cury-1);
+                    Refresh();
                 });
             this->PopupMenu(popup);
         }

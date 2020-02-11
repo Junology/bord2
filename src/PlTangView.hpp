@@ -13,7 +13,6 @@
 #    include <wx/wx.h>
 #endif
 
-#include <stack>
 #include <vector>
 
 #include "PlTang.hpp"
@@ -69,10 +68,13 @@ private:
     int m_curx, m_cury;
     bool m_is_locked = false;
 
+    //! Container type used to store move histories.
+    using HistoryContainer = std::vector<MoveData>;
     //! Stack of moves that have been applied.
-    std::stack<MoveData> m_moveHistory{};
-    //! Stack of moves that are to be applied.
-    std::stack<MoveData> m_moveRedoers{};
+    HistoryContainer m_moveHistory{};
+    //! Iterator; it points to the move in the history to be applied next to the tangle in the current view.
+    //! Use this to restore old states.
+    HistoryContainer::iterator m_cur;
 
     //! Set of moves available.
     std::vector<MoveType> m_moveDict{};
