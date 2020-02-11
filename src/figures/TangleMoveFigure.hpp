@@ -50,7 +50,6 @@ private:
         {}
 
         constexpr TangleMove(TangleMove const&) = default;
-        ~TangleMove() noexcept = default;
 
         TangleMove& operator=(TangleMove const&) noexcept = default;
         TangleMove& operator=(TangleMove &&) noexcept = default;

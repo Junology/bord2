@@ -31,7 +31,6 @@ public:
         Col_Max
     };
 
-protected:
     struct MoveElem {
         PlTangMove<2,2> move;
         size_t x, y;
@@ -41,28 +40,51 @@ protected:
 
 private:
     std::vector<MoveSeq> m_mvseqs;
+    std::vector<MoveSeq>::iterator m_cur;
 
 public:
     MoveListModel() noexcept
-        : wxDataViewVirtualListModel()
+      : wxDataViewVirtualListModel(),
+        m_mvseqs{}, m_cur{m_mvseqs.begin()}
     {}
 
     virtual ~MoveListModel() = default;
 
-    void append(MoveSeq const& seq) noexcept {
+    MoveSeq const* getCurrent() const noexcept {
+        if (m_cur != m_mvseqs.begin())
+            return &(*std::prev(m_cur));
+        else
+            return nullptr;
+    }
+
+    void push_back(MoveSeq const& seq) noexcept {
+        m_mvseqs.erase(m_cur, m_mvseqs.end());
         m_mvseqs.emplace_back(seq.begin(), seq.end());
+        m_cur = m_mvseqs.end();
         wxDataViewVirtualListModel::RowAppended();
     }
 
-    void emplace_back(PlTangMove<2,2> const& move, size_t x, size_t y) noexcept {
-        m_mvseqs.push_back({MoveElem{move, x, y}});
+    void push_back(std::initializer_list<MoveElem> &&seq) noexcept {
+        m_mvseqs.erase(m_cur, m_mvseqs.end());
+        m_mvseqs.emplace_back(seq.begin(), seq.end());
+        m_cur = m_mvseqs.end();
         wxDataViewVirtualListModel::RowAppended();
     }
 
-    void pop_back() noexcept {
-        if (m_mvseqs.size() > 0) {
-            m_mvseqs.pop_back();
-            wxDataViewVirtualListModel::RowDeleted(m_mvseqs.size());
+    void roll_back() noexcept {
+        if (m_cur != m_mvseqs.begin()) {
+            //m_mvseqs.pop_back();
+            //wxDataViewVirtualListModel::RowDeleted(m_mvseqs.size());
+            --m_cur;
+            wxDataViewVirtualListModel::RowDeleted(
+                std::distance(m_mvseqs.begin(), m_cur));
+        }
+    }
+
+    void advance() noexcept {
+        if (m_cur != m_mvseqs.end()) {
+            ++m_cur;
+            wxDataViewVirtualListModel::RowAppended();
         }
     }
 

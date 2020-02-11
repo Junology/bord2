@@ -22,8 +22,15 @@
 class MainFrame : public wxFrame
 {
 private:
-    PlTang<> m_pltangInit{};
+    enum FrameMode {
+        FMODE_NORMAL,
+        FMODE_RECORDMOVE
+    } m_mode = FMODE_NORMAL;
 
+    PlTang<> m_pltangInit{};
+    std::vector<MoveListModel::MoveElem> m_mvseq_inrec{};
+
+    wxToolBar *m_toolbar;
     //MainDrawPane *m_drawPane;
     BordPreviewDialog *m_prevDlg{};
     PlTangView *m_pltangView;
@@ -40,6 +47,7 @@ private:
     void OnExit(wxCommandEvent& event);
     void OnUndo(wxCommandEvent& event);
     void OnRedo(wxCommandEvent& event);
+    void OnAdd(wxCommandEvent& event);
     void OnPreview(wxCommandEvent& event);
     void OnAbout(wxCommandEvent& event);
 

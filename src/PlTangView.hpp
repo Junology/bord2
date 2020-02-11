@@ -67,6 +67,7 @@ private:
     wxSize m_cellsz{DefaultCellW, DefaultCellH};
     wxPoint m_clientOrig{0,0};
     int m_curx, m_cury;
+    bool m_is_locked = false;
 
     //! Stack of moves that have been applied.
     std::stack<MoveData> m_moveHistory{};
@@ -112,6 +113,12 @@ public:
         return m_pltang;
     }
 
+    //! Make the view uneditable
+    void lock() noexcept { m_is_locked = true; }
+
+    //! Make the view editable
+    void unlock() noexcept { m_is_locked = false; }
+
     //! Register a move so that it is available to apply.
     //! \param move The moves to be registered.
     //! \warning The duplicate of names will be not checked.
@@ -128,14 +135,16 @@ public:
     }
 
     //! Apply the move on the top of the m_moveHistory stack.
+    //! \param invoke Whether a move event is invoked or not.
     //! \retval true if undo is proceessed.
     //! \retval false if the stack is empty.
-    bool undo() noexcept;
+    bool undo(bool invoke = false) noexcept;
 
     //! Apply the move on the top of the m_moveRedoers stack.
+    //! \param invoke Whether a move event is invoked or not.
     //! \retval true if redo was processed.
     //! \retval false if the stack is empty.
-    bool redo() noexcept;
+    bool redo(bool invoke = false) noexcept;
 
     //! Apply a move to the planar tangle.
     //! Compatibility check will be performed.
@@ -143,7 +152,8 @@ public:
     //! \param name The name of the move applied, which have to be registered with \see registerMove.
     //! \param x The x-coordinate of the position where the move is applied.
     //! \param y The y-coordinate of the position where the move is applied.
-    bool applyMove(std::string const& name, size_t x, size_t y) noexcept;
+    //! \param invoke Whether a move event is invoked or not.
+    bool applyMove(std::string const& name, size_t x, size_t y, bool invoke = true) noexcept;
 
 protected:
     //! Apply a move to the planar tangle; a version available only for derived classes.
@@ -152,7 +162,8 @@ protected:
     //! \param x The x-coordinate of the position where the move is applied.
     //! \param y The y-coordinate of the position where the move is applied.
     //! \param revert If true, the move will be reverted in application.
-    bool applyMove(size_t i, size_t x, size_t y, bool revert = false) noexcept;
+    //! \param invoke Whether a move event is invoked or not.
+    bool applyMove(size_t i, size_t x, size_t y, bool revert = false, bool invoke = true) noexcept;
 
     virtual wxSize DoGetBestClientSize() const override;
     virtual wxSize DoGetBestSize() const override;

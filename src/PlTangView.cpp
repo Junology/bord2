@@ -48,55 +48,10 @@ renderPlTang(wxWindowDC const& dc, PlTang<MR,MC> tang, wxPoint orig, wxPoint bas
     scheme.setPen(2, bord2::Red);
     pltangfig.draw(scheme);
 
-    /*
-    auto wxgc = wxGraphicsContext::Create(dc);
-
-    if(!wxgc)
-        return false;
-
-    wxgc->SetPen(wxPen(*wxRED, 2, wxPENSTYLE_SOLID));
-    wxgc->SetBrush(wxNullBrush);
-    auto path = wxgc->CreatePath();
-    for(size_t i=0; i < tang.vlength(); ++i) {
-        tang.forElTang(i, [&](size_t j, char c){
-                auto origC = orig + baseX*j + baseY*i;
-                switch(c) {
-                case '-':
-                    path.AddLineToPoint(origC+baseX+baseY/2);
-                    break;
-
-                case '|':
-                    path.MoveToPoint(origC+baseX/2);
-                    path.AddLineToPoint(origC+baseX/2+baseY);
-                    break;
-
-                case '7':
-                    path.AddCurveToPoint(origC+baseX/3+baseY/2, origC+baseX/2+baseY*2/3, origC+baseX/2+baseY);
-                    break;
-
-                case 'r':
-                    path.MoveToPoint(origC+baseX/2+baseY);
-                    path.AddCurveToPoint(origC+baseX/2+baseY*2/3, origC+baseX*2/3+baseY/2, origC+baseX+baseY/2);
-                    break;
-
-                case 'L':
-                    path.MoveToPoint(origC+baseX/2);
-                    path.AddCurveToPoint(origC+baseX/2+baseY/3, origC+baseX*2/3+baseY/2, origC+baseX+baseY/2);
-                    break;
-
-                case 'J':
-                    path.AddCurveToPoint(origC+baseX/3+baseY/2, origC+baseX/2+baseY/3, origC+baseX/2);
-                    break;
-                }
-            });
-    }
-    wxgc->StrokePath(path);
-    delete wxgc;
-    */
     return true;
 }
 
-bool PlTangView::undo() noexcept
+bool PlTangView::undo(bool invoke) noexcept
 {
     if (m_moveHistory.empty())
         return false;
@@ -109,7 +64,7 @@ bool PlTangView::undo() noexcept
     return true;
 }
 
-bool PlTangView::redo() noexcept
+bool PlTangView::redo(bool invoke) noexcept
 {
     if (m_moveRedoers.empty())
         return false;
@@ -122,7 +77,7 @@ bool PlTangView::redo() noexcept
     return true;
 }
 
-bool PlTangView::applyMove(const std::string &name, size_t x, size_t y) noexcept
+bool PlTangView::applyMove(const std::string &name, size_t x, size_t y, bool invoke) noexcept
 {
     size_t i = 0;
 
@@ -134,7 +89,7 @@ bool PlTangView::applyMove(const std::string &name, size_t x, size_t y) noexcept
         }
     }
 
-    if (i==m_moveDict.size() || !applyMove(i,x,y)) {
+    if (i==m_moveDict.size() || !applyMove(i, x, y, invoke)) {
         return false;
     }
 
@@ -147,7 +102,7 @@ bool PlTangView::applyMove(const std::string &name, size_t x, size_t y) noexcept
     return true;
 }
 
-bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert) noexcept
+bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert, bool invoke) noexcept
 {
     auto newloc
         = revert ? m_moveDict[i].getBefore() : m_moveDict[i].getAfter();
@@ -155,10 +110,12 @@ bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert) noexcept
     m_pltang.replace(x, y, newloc);
 
     //! Invoke event
-    PlTangEvent event{m_moveDict[i], x, y, revert, PLTANG_MOVED, GetId()};
-    event.SetEventObject(this);
+    if (invoke) {
+        PlTangEvent event{m_moveDict[i], x, y, revert, PLTANG_MOVED, GetId()};
+        event.SetEventObject(this);
 
-    ProcessEvent(event);
+        ProcessEvent(event);
+    }
 
     return true;
 }
@@ -212,6 +169,11 @@ void PlTangView::OnScroll(wxScrollWinEvent& event) noexcept
 
 void PlTangView::OnMouseMove(wxMouseEvent& event) noexcept
 {
+    if(m_is_locked) {
+        event.Skip();
+        return;
+    }
+
     bool modified = false;
 
     auto vpos = event.GetPosition() + m_clientOrig + m_cellsz/2;
@@ -248,6 +210,11 @@ void PlTangView::OnMouseMove(wxMouseEvent& event) noexcept
 
 void PlTangView::OnMouseLeft(wxMouseEvent& event) noexcept
 {
+    if(m_is_locked) {
+        event.Skip();
+        return;
+    }
+
     if (m_curx > 0 && m_cury > 0) {
         auto loctang = m_pltang.slice<MoveType::rows, MoveType::cols>(m_curx-1, m_cury-1);
         wxMenu *popup = new wxMenu;

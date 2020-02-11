@@ -7,6 +7,7 @@
  */
 
 #include <wx/sizer.h>
+#include <wx/artprov.h>
 
 #include "config.hpp"
 #include "MainFrame.hpp"
@@ -18,6 +19,7 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
   EVT_MENU(wxID_EXIT, MainFrame::OnExit)
   EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
   EVT_MENU(wxID_REDO, MainFrame::OnRedo)
+  EVT_MENU(wxID_ADD, MainFrame::OnAdd)
   EVT_MENU(wxID_PREVIEW, MainFrame::OnPreview)
   EVT_MENU(wxID_ABOUT, MainFrame::OnAbout)
 // PlTangView associated events
@@ -61,6 +63,28 @@ MainFrame::MainFrame(const char* title)
     wxFrame::CreateStatusBar();
     SetStatusText("Hello, wxWidgets!");
 
+    // Toolbar
+    m_toolbar = wxFrame::CreateToolBar();
+    //toolbar->SetToolBitmapSize({24,24});
+    m_toolbar->AddTool(
+        wxID_NEW, "New",
+        wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR),
+        "New");
+    m_toolbar->AddSeparator();
+    m_toolbar->AddTool(
+        wxID_UNDO, "Undo",
+        wxArtProvider::GetBitmap(wxART_UNDO, wxART_TOOLBAR),
+        "Undo");
+    m_toolbar->AddTool(
+        wxID_REDO, "Redo",
+        wxArtProvider::GetBitmap(wxART_REDO, wxART_TOOLBAR),
+        "Redo");
+    m_toolbar->AddSeparator();
+    m_toolbar->AddTool(
+        wxID_ADD, "Add new move",
+        wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR),
+        "Add a new move");
+
     // Setup the body of the frame
     wxBoxSizer *sizer = new wxBoxSizer(wxHORIZONTAL);
 
@@ -80,6 +104,7 @@ MainFrame::MainFrame(const char* title)
     m_pltangView = new PlTangView(
         this, wxID_ANY, m_pltangInit
         );
+    m_pltangView->lock();
     constexpr PlTangMove<2,2> moves[] = {
         PlTangMove<2,2>{
             "SaddleHV",
@@ -165,14 +190,85 @@ void MainFrame::OnExit(wxCommandEvent& event)
 
 void MainFrame::OnUndo(wxCommandEvent &event)
 {
-    m_pltangView->undo();
+
+    switch(m_mode) {
+    case FMODE_NORMAL:
+        {
+            auto pseq = m_list_model->getCurrent();
+            if (!pseq)
+                return;
+
+            for(size_t i = 0; i < pseq->size(); ++i)
+                m_pltangView->undo(false);
+            m_list_model->roll_back();
+        }
+        break;
+
+    case FMODE_RECORDMOVE:
+        if (!m_mvseq_inrec.empty())
+            m_pltangView->undo(true);
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Error: Unknown mode" << std::endl;
+    }
+
     m_pltangView->Refresh();
 }
 
 void MainFrame::OnRedo(wxCommandEvent &event)
 {
-    m_pltangView->redo();
+    auto pseq = m_list_model->getCurrent();
+
+    switch(m_mode) {
+    case FMODE_NORMAL:
+        {
+            m_list_model->advance();
+            auto pseq = m_list_model->getCurrent();
+            if (!pseq)
+                return;
+
+            for(size_t i = 0; i < pseq->size(); ++i)
+                m_pltangView->redo(false);
+        }
+        break;
+
+    case FMODE_RECORDMOVE:
+        m_pltangView->redo(true);
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Error: Unknown mode" << std::endl;
+    }
     m_pltangView->Refresh();
+}
+
+void MainFrame::OnAdd(wxCommandEvent &event)
+{
+    switch(m_mode) {
+    case FMODE_NORMAL:
+        m_mode = FMODE_RECORDMOVE;
+        m_toolbar->SetToolNormalBitmap(
+            wxID_ADD,
+            wxArtProvider::GetBitmap(wxART_TICK_MARK, wxART_TOOLBAR));
+        m_pltangView->unlock();
+        break;
+
+    case FMODE_RECORDMOVE:
+        m_mode = FMODE_NORMAL;
+        m_toolbar->SetToolNormalBitmap(
+            wxID_ADD,
+            wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
+        m_pltangView->lock();
+        m_list_model->push_back(m_mvseq_inrec);
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Error: Unknown mode" << std::endl;
+    }
 }
 
 void MainFrame::OnPreview(wxCommandEvent &event)
@@ -185,7 +281,11 @@ void MainFrame::OnPreview(wxCommandEvent &event)
 
 void MainFrame::OnAbout(wxCommandEvent& event)
 {
-    wxMessageBox(appconf::fullname, "About", wxOK | wxICON_INFORMATION, this);
+    wxMessageBox(
+        appconf::fullname,
+        "About",
+        wxOK | wxICON_INFORMATION,
+        this);
 }
 
 void MainFrame::OnTangleMoved(PlTangEvent& event)
@@ -193,23 +293,10 @@ void MainFrame::OnTangleMoved(PlTangEvent& event)
     auto const& mv = event.GetMove();
 
     if(event.IsRevert()) {
-        m_list_model->pop_back();
-        m_prevDlg->getFigure<32,32>().pop();
-        m_prevDlg->Refresh();
+        m_mvseq_inrec.pop_back();
     }
     else {
-        m_list_model->emplace_back(event.GetMove(), event.GetX(), event.GetY());
-        m_prevDlg->getFigure<32,32>().push(
-            event.GetMove(),
-            event.GetX(),
-            event.GetY(),
-            [&](PathScheme<Eigen::Vector3d>& scheme, TangleMoveFigure<decltype(m_pltangInit)>::MoveDrawData dt) {
-                scheme.moveTo(dt.baseX + dt.baseY);
-                scheme.lineTo(2*dt.baseX + dt.baseY);
-                scheme.lineTo(2*dt.baseX + 2*dt.baseY);
-                scheme.closePath();
-                scheme.stroke();
-            } );
-        m_prevDlg->Refresh();
+        m_mvseq_inrec.push_back(
+            {event.GetMove(), event.GetX(), event.GetY()});
     }
 }
