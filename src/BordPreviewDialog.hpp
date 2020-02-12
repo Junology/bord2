@@ -24,9 +24,11 @@ class BordPreviewDialog : public wxFrame
     wxDECLARE_DYNAMIC_CLASS(BordPreviewDialog);
     wxDECLARE_EVENT_TABLE();
 
+public:
+    using TangType = PlTang<>;
 private:
-    Figure3DView *m_drawPane{nullptr};
-    TangleMoveFigure<PlTang<>> *mp_tangleFig{};
+    Figure3DView *m_drawPane = nullptr;
+    TangleMoveFigure<PlTang<>> *mp_tangleFig = nullptr;
 
 public:
     enum : long {
@@ -63,15 +65,12 @@ public:
         return mp_tangleFig;
     }
 
-    template <size_t R, size_t C>
-    void setPlTang(PlTang<R,C> const& pltang) {
-        mp_tangleFig = new TangleMoveFigure<PlTang<R,C>>{
+    void setPlTangMove(TangType const& pltang, std::vector<PlTangMove<2,2>::MoveSeq> const& mvseqs) {
+        mp_tangleFig->setTangleMove(
             pltang,
-            Eigen::Vector2d(40.0, 0.0),
-            Eigen::Vector2d(0.0, 40.0)
-        };
-        // Figure3DView class will deletes the pointer in the destructor.
-        m_drawPane->setFigure(mp_tangleFig);
+            mvseqs,
+            40*Eigen::Matrix3d::Identity() );
+        m_drawPane->Refresh();
     }
 
     //! Get the associated figure.

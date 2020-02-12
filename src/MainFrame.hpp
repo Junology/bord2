@@ -28,10 +28,9 @@ private:
     } m_mode = FMODE_NORMAL;
 
     PlTang<> m_pltangInit{};
-    std::vector<MoveListModel::MoveElem> m_mvseq_inrec{};
+    PlTangMove<2,2>::MoveSeq m_mvseq_inrec{};
 
     wxToolBar *m_toolbar;
-    //MainDrawPane *m_drawPane;
     BordPreviewDialog *m_prevDlg{};
     PlTangView *m_pltangView;
 

@@ -34,6 +34,12 @@ void BordPreviewDialog::CreateControls()
     wxFrame::SetMenuBar(menuBar);
 
     m_drawPane = new Figure3DView(this, wxID_ANY, wxDefaultPosition, wxSize{600,450});
+    mp_tangleFig = new TangleMoveFigure<TangType>(
+        TangType{},
+        {},
+        40*Eigen::Matrix3d::Identity() );
+    // Figure3DView class automatically deletes the resource via std::unique_ptr.
+    m_drawPane->setFigure(mp_tangleFig);
 
     auto sizer = new wxBoxSizer(wxVERTICAL);
     wxFrame::SetSizer(sizer);

@@ -31,12 +31,7 @@ public:
         Col_Max
     };
 
-    struct MoveElem {
-        PlTangMove<2,2> move;
-        size_t x, y;
-    };
-
-    using MoveSeq = std::vector<MoveElem>;
+    using MoveSeq = typename PlTangMove<2,2>::MoveSeq;
 
 private:
     std::vector<MoveSeq> m_mvseqs;
@@ -57,20 +52,24 @@ public:
             return nullptr;
     }
 
+    std::vector<MoveSeq> const& getMoveSeqs() const noexcept {
+        return m_mvseqs;
+    }
+
     void push_back(MoveSeq const& seq) noexcept {
         m_mvseqs.erase(m_cur, m_mvseqs.end());
         m_mvseqs.emplace_back(seq.begin(), seq.end());
         m_cur = m_mvseqs.end();
         wxDataViewVirtualListModel::RowAppended();
     }
-
+/*
     void push_back(std::initializer_list<MoveElem> &&seq) noexcept {
         m_mvseqs.erase(m_cur, m_mvseqs.end());
         m_mvseqs.emplace_back(seq.begin(), seq.end());
         m_cur = m_mvseqs.end();
         wxDataViewVirtualListModel::RowAppended();
     }
-
+*/
     void roll_back() noexcept {
         if (m_cur != m_mvseqs.begin()) {
             //m_mvseqs.pop_back();

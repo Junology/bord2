@@ -68,9 +68,9 @@ public:
                     if (pos[0] == StrandJoint::None || pos[1] == StrandJoint::None)
                         return;
 
-                    size_t key0 = appendGraphNotFound(
+                    size_t key0 = findAppend(
                         graph, StrandJoint{pos[0], i, j} );
-                    size_t key1 = appendGraphNotFound(
+                    size_t key1 = findAppend(
                         graph, StrandJoint{pos[1], i, j} );
                     graph.connect(key0, key1);
                 } );
@@ -145,17 +145,6 @@ public:
     }
 
 protected:
-    template <class K, class T>
-    static K appendGraphNotFound(GenericGraph<std::map<K,T>> &graph, T const& x)
-    {
-        auto maybeval = graph.findKey(
-            [&x](std::pair<K,T> const& val) { return val.second == x; } );
-        if (maybeval)
-            return maybeval->first;
-        else
-            return graph.append(x);
-    }
-
     static constexpr std::array<StrandJoint::Position, 2> mkJointPos(char c) noexcept
     {
         // Take care on the order; up-to-down, left-to-right, the former is of high priority.

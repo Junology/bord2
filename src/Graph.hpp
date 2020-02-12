@@ -183,6 +183,18 @@ public:
         }
     }
 
+    template <class F>
+    constexpr void forEachEdge(F&& f) noexcept(noexcept(f(std::declval<size_t>(),std::declval<size_t>()))) {
+        auto edges = m_edges;
+
+        while(edges) {
+            size_t r = edges.countTrail0();
+            auto vs = decodePair(r);
+            f(vs.first, vs.second);
+            edges.set(r, false);
+        }
+    }
+
     //! Trim a connected component to which the minimum vertex belongs.
     //! If there is no vertex, the function just returns the empty graph.
     constexpr Graph<N> trimComponent() noexcept {

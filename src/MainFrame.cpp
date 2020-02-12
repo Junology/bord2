@@ -33,6 +33,115 @@ constexpr auto pltangInit = PlTang<>{
     "r7  \n"
 };
 
+enum class Move {
+    SaddleHV,
+    SaddleVH,
+    Cup,
+    Cap,
+    ExtendR,
+    ExtendL,
+    ExtendU,
+    ExtendD
+};
+
+constexpr PlTangMove<2,2> generateMove(Move mvkind)
+{
+    enum : size_t {
+        BeforeUL = 0,
+        BeforeUR = 1,
+        BeforeDL = 2,
+        BeforeDR = 3,
+        AfterUL = 4,
+        AfterUR = 5,
+        AfterDL = 6,
+        AfterDR = 7
+    };
+    Graph<8> graph(8);
+
+    switch(mvkind) {
+    case Move::SaddleHV:
+        graph.connect(BeforeUL, BeforeDR);
+        graph.connect(BeforeUR, BeforeDL);
+        return PlTangMove<2,2>(
+            "SaddleHV",
+            PlTang<2,2>{"LJ\nr7\n"},
+            PlTang<2,2>{"||\n||\n"},
+            graph );
+
+    case Move::SaddleVH:
+        graph.connect(AfterUL, AfterDR);
+        graph.connect(AfterUR, AfterDL);
+        return PlTangMove<2,2>(
+            "SaddleVH",
+            PlTang<2,2>{"||\n||\n"},
+            PlTang<2,2>{"LJ\nr7\n"},
+            graph );
+
+    case Move::Cup:
+        graph.connect(AfterUL, AfterDR);
+        graph.connect(AfterUR, AfterDL);
+        return PlTangMove<2,2>(
+            "Cup",
+            PlTang<2,2>{"  \n  \n"},
+            PlTang<2,2>{"r7\nLJ\n"},
+            graph );
+
+    case Move::Cap:
+        graph.connect(BeforeUL, BeforeDR);
+        graph.connect(BeforeUR, BeforeDL);
+        return PlTangMove<2,2>(
+            "Cap",
+            PlTang<2,2>{"r7\nLJ\n"},
+            PlTang<2,2>{"  \n  \n"},
+            graph );
+
+    case Move::ExtendR:
+        graph.connect(BeforeUL, AfterUL);
+        graph.connect(BeforeUL, AfterUR);
+        graph.connect(BeforeDL, AfterDL);
+        graph.connect(BeforeDL, AfterDR);
+        return PlTangMove<2,2>(
+            "ExtendR",
+            PlTang<2,2>{"| \n| \n"},
+            PlTang<2,2>{"L7\nrJ\n"},
+            graph );
+
+    case Move::ExtendL:
+        graph.connect(BeforeUR, AfterUL);
+        graph.connect(BeforeUR, AfterUR);
+        graph.connect(BeforeDR, AfterDL);
+        graph.connect(BeforeDR, AfterDR);
+        return PlTangMove<2,2>(
+            "ExtendL",
+            PlTang<2,2>{" |\n |\n"},
+            PlTang<2,2>{"rJ\nL7\n"},
+            graph );
+
+    case Move::ExtendU:
+        graph.connect(BeforeDL, AfterUL);
+        graph.connect(BeforeDR, AfterUR);
+        return PlTangMove<2,2>(
+            "ExtendU",
+            PlTang<2,2>{"  \nr7\n"},
+            PlTang<2,2>{"r7\n||\n"},
+            graph );
+
+    case Move::ExtendD:
+        graph.connect(BeforeUL, AfterDL);
+        graph.connect(BeforeUR, AfterDR);
+        return PlTangMove<2,2>(
+            "ExtendD",
+            PlTang<2,2>{"LJ\n  \n"},
+            PlTang<2,2>{"||\nLJ\n"},
+            graph );
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown move" << std::endl;
+        return PlTangMove<2,2>{};
+    }
+}
+
 //! Constructor.
 MainFrame::MainFrame(const char* title)
   : wxFrame(nullptr, -1, title, wxDefaultPosition, wxSize(800,600)),
@@ -65,7 +174,6 @@ MainFrame::MainFrame(const char* title)
 
     // Toolbar
     m_toolbar = wxFrame::CreateToolBar();
-    //toolbar->SetToolBitmapSize({24,24});
     m_toolbar->AddTool(
         wxID_NEW, "New",
         wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR),
@@ -106,47 +214,16 @@ MainFrame::MainFrame(const char* title)
         );
     m_pltangView->lock();
     constexpr PlTangMove<2,2> moves[] = {
-        PlTangMove<2,2>{
-            "SaddleHV",
-            PlTang<2,2>{"LJ\nr7\n"},
-            PlTang<2,2>{"||\n||\n"}
-        },
-        PlTangMove<2,2>{
-            "SaddleVH",
-            PlTang<2,2>{"||\n||\n"},
-            PlTang<2,2>{"LJ\nr7\n"}
-        },
-        PlTangMove<2,2>{
-            "Cup",
-            PlTang<2,2>{"  \n  \n"},
-            PlTang<2,2>{"r7\nLJ\n"}
-        },
-        PlTangMove<2,2>{
-            "Cap",
-            PlTang<2,2>{"r7\nLJ\n"},
-            PlTang<2,2>{"  \n  \n"}
-        },
-        PlTangMove<2,2>{
-            "ExtendR",
-            PlTang<2,2>{"| \n| \n"},
-            PlTang<2,2>{"L7\nrJ\n"}
-        },
-        PlTangMove<2,2>{
-            "ExtendL",
-            PlTang<2,2>{" |\n |\n"},
-            PlTang<2,2>{"rJ\nL7\n"}
-        },
-        PlTangMove<2,2>{
-            "ExtendU",
-            PlTang<2,2>{"  \nr7\n"},
-            PlTang<2,2>{"r7\n||\n"}
-        },
-        PlTangMove<2,2>{
-            "ExtendD",
-            PlTang<2,2>{"LJ\n  \n"},
-            PlTang<2,2>{"||\nLJ\n"}
-        }
+        generateMove(Move::SaddleHV),
+        generateMove(Move::SaddleVH),
+        generateMove(Move::Cup),
+        generateMove(Move::Cap),
+        generateMove(Move::ExtendR),
+        generateMove(Move::ExtendL),
+        generateMove(Move::ExtendU),
+        generateMove(Move::ExtendD)
     };
+
     for(auto mv : moves) {
         m_pltangView->registerMove(mv);
     }
@@ -162,7 +239,7 @@ MainFrame::MainFrame(const char* title)
     // Create an instance of preview dialog
     m_prevDlg = new BordPreviewDialog(this, wxID_ANY, "Preview Cobordism");
     if(m_pltangInit.isvalid())
-        m_prevDlg->setPlTang(m_pltangInit);
+        m_prevDlg->setPlTangMove(m_pltangInit, {});
 }
 
 void MainFrame::OnNew(wxCommandEvent& event)
@@ -179,7 +256,7 @@ void MainFrame::OnNew(wxCommandEvent& event)
     m_pltangView->Refresh();
     m_list_model->reset();
 
-    m_prevDlg->setPlTang(m_pltangInit);
+    m_prevDlg->setPlTangMove(m_pltangInit, {});
     m_prevDlg->Refresh();
 }
 
@@ -263,6 +340,8 @@ void MainFrame::OnAdd(wxCommandEvent &event)
             wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
         m_pltangView->lock();
         m_list_model->push_back(m_mvseq_inrec);
+        m_prevDlg->setPlTangMove(m_pltangInit, m_list_model->getMoveSeqs());
+        m_mvseq_inrec.clear();
         break;
 
     default:
@@ -274,7 +353,7 @@ void MainFrame::OnAdd(wxCommandEvent &event)
 void MainFrame::OnPreview(wxCommandEvent &event)
 {
     if(!m_prevDlg->IsShown()) {
-        m_prevDlg->setPlTang(m_pltangInit);
+        m_prevDlg->setPlTangMove(m_pltangInit, m_list_model->getMoveSeqs());
         m_prevDlg->Show();
     }
 }

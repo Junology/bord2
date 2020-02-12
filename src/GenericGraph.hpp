@@ -11,6 +11,7 @@
 #include <type_traits>
 #include <utility>
 #include <set>
+#include <map>
 #include <memory>
 
 #include "utils/BitArray.hpp"
@@ -455,3 +456,20 @@ protected:
             return {false, key};
     }
 };
+
+//! Special function for graphs with mapping vertices.
+//! This function first searches a vertex which is mapped to a given value.
+//! If found, it returns the key; otherwise, it appends the given value as a new vertex and returns the key.
+//! In the search, given comparison function is used; default is std::equal_to.
+template <class K, class T, class Comp = std::equal_to<T>>
+K findAppend(GenericGraph<std::map<K,T>> &graph, T const& x, Comp const& comp = std::equal_to<T>()) noexcept
+{
+    auto maybeval = graph.findKey(
+        [&x, &comp](std::pair<K,T> const& val) {
+            return comp(val.second, x);
+        } );
+    if (maybeval)
+        return maybeval->first;
+    else
+        return graph.append(x);
+}

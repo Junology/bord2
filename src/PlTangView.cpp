@@ -56,6 +56,7 @@ bool PlTangView::undo(bool invoke) noexcept
     if (m_cur == m_moveHistory.begin())
         return false;
 
+    // Move the cursor back.
     --m_cur;
 
     // Reverse the last move.
@@ -72,6 +73,7 @@ bool PlTangView::redo(bool invoke) noexcept
     // Apply the next move.
     m_pltang.replace(m_cur->x, m_cur->y, m_moveDict[m_cur->index].getAfter());
 
+    // Move the cursor forward.
     ++m_cur;
 
     return true;
