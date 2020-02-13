@@ -13,6 +13,7 @@
 #include <tuple>
 #include <array>
 #include <string>
+#include <functional>
 
 #include "utils.hpp"
 #include "utils/BitArray.hpp"
@@ -350,6 +351,18 @@ public:
     constexpr void forElTang(size_t i, F && fun) const noexcept
     {
         foreachAA(m_bincob[i+1], m_bincob[i], m_hlength, std::forward<F>(fun));
+    }
+
+    //! Traverse all the cells in the row-major ordering.
+    //! \param f The function-like object with the signature R(size_t,size_t,char) for an arbitrary type R (just ignored).
+    template <class F>
+    constexpr void traverse(F&& f) noexcept(noexcept(f(std::declval<size_t>(),std::declval<size_t>(),std::declval<char>())))
+    {
+        for(size_t j = 0; j < m_vlength; ++j)
+            forElTang(j, std::bind(std::forward<F>(f),
+                                   std::placeholders::_1,
+                                   j,
+                                   std::placeholders::_2));
     }
 
     /** Basic operations **/

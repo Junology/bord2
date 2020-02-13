@@ -118,3 +118,43 @@ public:
     }
 };
 
+//! Find the first move in a sequence that does not commute with former moves.
+//! \param begin The iterator pointing to the begining of the sequence.
+//! \param end The iterator pointing to the end of the sequence.
+//! \return The iterator pointing to the first move not commuting with former moves if found, or the end of the sequence otherwise.
+template <class T, size_t MVR, size_t MVC>
+constexpr
+auto
+noncommHead(T const& tangle,
+            typename PlTangMove<MVR,MVC>::MoveSeq::iterator begin,
+            typename PlTangMove<MVR,MVC>::MoveSeq::iterator const& end) noexcept
+    -> std::pair<typename PlTangMove<MVR,MVC>::MoveSeq::iterator, std::vector<bool>>
+{
+    auto result = std::make_pair(
+        begin,
+        std::vector<bool>(tangle.hlength()*tangle.vlength(), false));
+
+    while(result.first != end) {
+        auto &mv = *result.first;
+        auto &mvtbl = result.second;
+
+        if (!mvtbl[mv.x + mv.y*tangle.hlength()]
+            && !mvtbl[(mv.x+1) + mv.y*tangle.hlength()]
+            && !mvtbl[mv.x + (mv.y+1)*tangle.hlength()]
+            && !mvtbl[(mv.x+1) + (mv.y+1)*tangle.hlength()])
+        {
+            mvtbl[mv.x + mv.y*tangle.hlength()] = true;
+            mvtbl[(mv.x+1) + mv.y*tangle.hlength()] = true;
+            mvtbl[mv.x + (mv.y+1)*tangle.hlength()] = true;
+            mvtbl[(mv.x+1) + (mv.y+1)*tangle.hlength()] = true;
+
+            ++result.first;
+        }
+        else {
+            break;
+        }
+    }
+    // Hopefully RVO works.
+    return result;
+}
+
