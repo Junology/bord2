@@ -50,12 +50,6 @@ protected:
     struct NodeType {
         VertexType v;
         std::vector<IndexType> branch;
-
-        NodeType(VertexType v0, std::vector<IndexType> const& branch0)
-            : v{v0}, branch{branch0}
-        {}
-        NodeType(NodeType const&) noexcept = default;
-        NodeType(NodeType &&) noexcept = default;
     };
 
 private:
@@ -63,12 +57,6 @@ private:
     std::list<NodeType> m_verts{};
 
 public:
-    WiredTable() noexcept = default;
-    WiredTable(WiredTable const&) noexcept = default;
-    WiredTable(WiredTable &&) noexcept = default;
-
-    ~WiredTable() noexcept = default;
-
     //! Check if an index is a valid one.
     bool hasVertexOf(IndexType const index) const noexcept
     {
@@ -99,7 +87,7 @@ public:
     //! \wraning Although the type of the index may be a pointer, the user must not try to de-reference it.
     IndexType append(VertexType const& vert) noexcept
     {
-        m_verts.emplace_back(vert, std::vector<IndexType>{});
+        m_verts.push_back({vert, std::vector<IndexType>{}});
         return &m_verts.back();
     }
 
@@ -222,7 +210,7 @@ public:
             result.first = bord2::accumMap(
                 std::make_move_iterator(result.first.begin()),
                 std::make_move_iterator(result.first.end()),
-                [&result,this](PathType const& path) -> std::vector<PathType> {
+                [&result](PathType const& path) -> std::vector<PathType> {
                     // Candidates of next vertices.
                     std::vector<IndexType> nexts = path.back()->branch;
                     // Remove already passed vertices from candidates.

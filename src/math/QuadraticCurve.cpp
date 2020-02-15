@@ -105,7 +105,7 @@ std::vector<double> QuadraticCurve::intersectParams(Eigen::Vector2d const &p0, E
             result.push_back(sols.second);
         }
     }
-    return std::move(result);
+    return result;
 }
 
 /* Approximate the intersection with a given triangle by quadratic Bezier curves.

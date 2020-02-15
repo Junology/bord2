@@ -10,6 +10,14 @@ set(PROJECT_TARGET_NAME ${PROJECT_NAME})
 
 ## Language setting
 enable_language(CXX)
+
+option(USE_CLANG "Use clang instead of GCC" OFF)
+
+if(USE_CLANG)
+set(CMAKE_C_COMPILER "/usr/bin/clang" CACHE string "clang compiler" FORCE)
+set(CMAKE_CXX_COMPILER "/usr/bin/clang++" CACHE string "clang++ compiler" FORCE)
+endif(USE_CLANG)
+
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
