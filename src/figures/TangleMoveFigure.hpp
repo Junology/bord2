@@ -58,8 +58,13 @@ private:
     //! Vector normal to ridge-lines.
     Eigen::Vector2d m_critV;
 
+    struct PathElem {
+        bord2::PathElemType type;
+        Eigen::Vector3d v;
+        double midheight;
+    };
     //! Paths in drawing.
-    std::vector<std::vector<std::pair<Eigen::Vector3d,bool>>> m_paths{};
+    std::vector<std::vector<PathElem>> m_paths{};
 
 public:
     TangleMoveFigure(PlTang<R,C> const& tang,
@@ -130,18 +135,35 @@ public:
             adpscheme.release();
         }
 
+        /* Draw the cobordisms */
         for(auto& path : m_paths) {
             if (path.size() <= 1)
                 continue;
 
-            scheme.moveTo(m_base * path[0].first);
+            scheme.moveTo(m_base * path[0].v);
 
             for(size_t i = 1; i < path.size(); ++i) {
-                Eigen::Vector3d c1 = m_base*path[i-1].first
-                    + path[i-1].second*m_base.col(2);
-                Eigen::Vector3d c2 = m_base*path[i].first
-                    + path[i].second*m_base.col(2);
-                scheme.bezierTo(c1, c2, m_base*path[i].first);
+                switch(path[i].type) {
+                case bord2::Line:
+                    scheme.lineTo(m_base*path[i].v);
+                    break;
+
+                case bord2::Bezier:
+                    {
+                        auto c1 = Eigen::Vector3d(
+                            path[i-1].v(0),
+                            path[i-1].v(1),
+                            path[i].midheight );
+                        auto c2 = Eigen::Vector3d(
+                            path[i].v(0),
+                            path[i].v(1),
+                            path[i].midheight );
+                        scheme.bezierTo(m_base*c1, m_base*c2, m_base*path[i].v);
+                    }
+                    break;
+                default:
+                    break;
+                }
             }
         }
 
@@ -174,9 +196,22 @@ public:
     }
 
 protected:
-    Eigen::Vector2d getCrit(char c) const {
+    template <class F>
+    static Eigen::Vector3d modifZ(Eigen::Vector3d v, F&& f) {
+        static_assert(
+            std::is_convertible<
+                decltype(std::declval<F&&>()(std::declval<double>())),
+                double>::value,
+            "The function type should be double(double)");
+
+            v(2) = f(v(2));
+        return v;
+    }
+
+    std::pair<bool, Eigen::Vector2d> getCrit(char c) const {
         Eigen::Vector2d v0, v1{Eigen::Vector2d(0.5,0.5)}, v2;
 
+        // Parametrize the curves in counter-clockwise direction.
         switch(c) {
         case 'L':
             v0 = Eigen::Vector2d(0.5, 0.0);
@@ -189,26 +224,30 @@ protected:
             break;
 
         case 'r':
-            v0 = Eigen::Vector2d(0.5, 1.0);
-            v2 = Eigen::Vector2d(1.0, 0.5);
-            break;
-
-        case '7':
-            v0 = Eigen::Vector2d(0.0, 0.5);
+            v0 = Eigen::Vector2d(1.0, 0.5);
             v2 = Eigen::Vector2d(0.5, 1.0);
             break;
 
+        case '7':
+            v0 = Eigen::Vector2d(0.5, 1.0);
+            v2 = Eigen::Vector2d(0.0, 0.5);
+            break;
+
         default:
-            return Eigen::Vector2d{0.0, 0.0};
+            return std::make_pair(false, Eigen::Vector2d{0.0, 0.0});
         }
 
         double numer = m_critV.adjoint() * (v2 - v1);
         double denom = m_critV.adjoint() * (v0 - 2.0*v1 + v2);
         double t = numer / denom;
 
-        return (0.0 < t && t < 1.0)
-                      ? (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2)
-                      : Eigen::Vector2d{0.0, 0.0};
+        return (0.0 < t && t <= 1.0)
+                      ? std::make_pair(
+                          true,
+                          (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2) )
+                      : std::make_pair(
+                          false,
+                          Eigen::Vector2d{0.0, 0.0} );
     }
 
     void makePath() {
@@ -224,53 +263,24 @@ protected:
 
         // Traverse all the grouped moves
         for (size_t r = 0; r < m_mvseqs.size(); ++r) {
-            std::vector<unsigned char> mvtbl(tang_cur.hlength()*tang_cur.vlength(), 0);
-            size_t s = 0;
-            for(auto& mv : m_mvseqs[r]) {
-                // If the next move commutes with olds, draw it in the same level.
-                if(!mvtbl[mv.x + mv.y*tang_cur.hlength()]
-                    && !mvtbl[(mv.x+1) + mv.y*tang_cur.hlength()]
-                    && !mvtbl[mv.x + (mv.y+1)*tang_cur.hlength()]
-                    && !mvtbl[(mv.x+1) + (mv.y+1)*tang_cur.hlength()])
-                {
-                    mvtbl[mv.x + mv.y*tang_cur.hlength()] = 1;
-                    mvtbl[(mv.x+1) + mv.y*tang_cur.hlength()] = 1;
-                    mvtbl[mv.x + (mv.y+1)*tang_cur.hlength()] = 1;
-                    mvtbl[(mv.x+1) + (mv.y+1)*tang_cur.hlength()] = 1;
-                }
-                // If it doesn't commute, go to the next level.
-                else {
-                    ++s;
-                    std::fill(mvtbl.begin(), mvtbl.end(), 0);
-                }
+            auto commBeg = m_mvseqs[r].begin();
+            auto commData = noncommHead(m_tangCod,
+                                        commBeg,
+                                        m_mvseqs[r].end());
 
-                std::map<size_t, Eigen::Vector2d> critmap;
-                size_t wid = mv.move.getBefore().hlength();
-                size_t hei = mv.move.getBefore().vlength();
+            while (commBeg != m_mvseqs[r].end()) {
+                PlTangMove<2,2>::MoveElem mv = *commBeg;
 
-                // Compute critical point in ridgeline-normal direction.
-                for(size_t j = 0; j < mv.move.getBefore().vlength(); ++j) {
-                    mv.move.getBefore().forElTang(
-                        j,
-                        [&mv, &j, &critmap, this, wid](size_t i, char c) {
-                            auto crv = getCrit(c);
-                            if(crv.norm() > 0)
-                                // Make sure the row-major ordering.
-                                critmap.emplace(
-                                    i+j*wid,
-                                    crv + Eigen::Vector2d(mv.x+i, mv.y+j));
-                        } );
-                    mv.move.getAfter().forElTang(
-                        j,
-                        [&mv, &j, &critmap, this, wid, hei](size_t i, char c) {
-                            auto crv = getCrit(c);
-                            if(crv.norm() > 0)
-                                // Make sure the row-major ordering.
-                                critmap.emplace(
-                                    i+j*wid + wid*hei,
-                                    crv + Eigen::Vector2d(mv.x+i, mv.y+j));
-                        } );
-                }
+                applyMove(tang_cur, mv);
+
+                auto critmap = mv.move.mapVertexIf(
+                    [&mv, this](size_t i, size_t j, char c) noexcept
+                    -> std::pair<bool,Eigen::Vector2d> {
+                        auto crv = getCrit(c);
+                        return std::pair<bool,Eigen::Vector2d>(
+                            crv.first,
+                            crv.second + Eigen::Vector2d(mv.x+i, mv.y+j));
+                    } );
 
                 // Connect critical points following the connection graph.
                 mv.move.getGraph().forEachEdge(
@@ -282,57 +292,86 @@ protected:
                             return;
 
                         auto vm = itrm == critmap.end()
-                            ? Eigen::Vector3d(
-                                mv.x + m%2 + 0.5,
-                                mv.y + m/2 + 0.5,
-                                m >= 4 ? q+s+1 : q+s )
-                            : Eigen::Vector3d(
-                                itrm->second(0),
-                                itrm->second(1),
-                                m >= 4 ? q+s+1 : q+s );
+                            ? Eigen::Vector3d(mv.x + m%2 + 0.5,
+                                              mv.y + m/2 + 0.5,
+                                              m >= 4 ? q+levels[r]+1 : q+levels[r] )
+                            : Eigen::Vector3d(itrm->second(0),
+                                              itrm->second(1),
+                                              m >= 4 ? q+levels[r]+1 : q+levels[r] );
                         auto vn = itrn == critmap.end()
-                            ? Eigen::Vector3d(
-                                mv.x + n%2 + 0.5,
-                                mv.y + n/2 + 0.5,
-                                n >= 4 ? q+s+1 : q+s )
-                            : Eigen::Vector3d(
-                                itrn->second(0),
-                                itrn->second(1),
-                                n >= 4 ? q+s+1 : q+s );
+                            ? Eigen::Vector3d(mv.x + n%2 + 0.5,
+                                              mv.y + n/2 + 0.5,
+                                              n >= 4 ? q+levels[r]+1 : q+levels[r] )
+                            : Eigen::Vector3d(itrn->second(0),
+                                              itrn->second(1),
+                                n >= 4 ? q+levels[r]+1 : q+levels[r] );
 
                         auto keym = findAppend(graph, vm);
                         auto keyn = findAppend(graph, vn);
 
-                        // If vm and vn are at the same height, append the middle point in the edge to indicate whether the path should be over-convex or under-convex.
-                        if ( (m >= 4) == (n >= 4) ) {
-                            auto keymid = graph.append(
-                                Eigen::Vector3d(
-                                    mv.x+1.0, mv.y+1.0, q+s+0.5 ));
-                            graph.connect(keym, keymid);
-                            graph.connect(keyn, keymid);
-                        }
-                        // Otherwise, just connect two critical points directly.
-                        else {
-                            graph.connect(keym, keyn);
-                        }
+                        // Connect two vertices via a mediate vertex.
+                        auto keymid = graph.append(
+                            Eigen::Vector3d(mv.x+1.0, mv.y+1.0, q+levels[r]+0.5));
+                        graph.connect(keym, keymid);
+                        graph.connect(keyn, keymid);
                     } );
-            } // end of traverse in m_mvseqs[r].
+                // Advance the cursor
+                ++commBeg;
 
-            // Now the variable s equals the number of levels of the bordism constructed from the grouped moves.
-            levels[r] = s;
+                // If the cursor reaches the non-commutative move;
+                if(commBeg == commData.first) {
+                    // Draw the identities.
+                    tang_cur.traverse(
+                        [&,this](size_t i, size_t j, char c) {
+                            if (commData.second[i+j*tang_cur.hlength()])
+                                return;
+                            auto crv = getCrit(c);
+                            if (!crv.first)
+                                return;
 
-            // Advance the counter of layers.
-            q += s;
+                            auto beg = Eigen::Vector3d(
+                                i+crv.second(0), j+crv.second(1), q+levels[r]);
+                            auto keyb = findAppend(graph, beg);
+                            auto end = Eigen::Vector3d(
+                                i+crv.second(0), j+crv.second(1), q+levels[r]+1);
+                            auto keye = findAppend(graph, end);
+                            graph.connect(keyb, keye);
+                        } );
+                    // Advance the count of levels.
+                    ++levels[r];
+                    // Compute the next cluster of mutually commutative moves.
+                    commData = noncommHead(m_tangDom,
+                                           commBeg,
+                                           m_mvseqs[r].end());
+                }
+            } // end of while(...)
+
+            // Now the variable levels[r] equals the number of levels of the bordism constructed from the grouped moves.
+
+            // Advance the counter of total levels.
+            q += levels[r];
+
         } // end of traverse of the array m_mvseqs.
 
         // Hight modificator.
-        auto modif = [&levels] (Eigen::Vector3d v) -> Eigen::Vector3d {
-            size_t r = 0;
-            for(size_t q = 0; v(2) > q+levels[r] && r < levels.size(); q+=levels[r])
+        auto normh = [&levels] (double hei) -> double {
+            size_t r = 0, q = 0;
+            while(hei > q+levels[r] && r < levels.size()) {
+                q+=levels[r];
                 ++r;
-            v(2) = (v(2)-r)/static_cast<double>(levels[r]) + r;
-            return v;
+            }
+            if (levels[r] > 0)
+                hei = (hei-q)/levels[r] + r;
+
+            return hei;
         };
+
+        //* Debug
+        std::cout << __FILE__":" << __LINE__ << std::endl;
+        for(auto l : levels)
+            std::cout << l << std::endl;
+        // */
+
         // Integral detector
         auto isInt = [](double x) -> bool {
             constexpr double threshold = 10e-10;
@@ -344,18 +383,22 @@ protected:
             auto mayend = comp.findEnd();
             m_paths.emplace_back();
 
-            double prevlevel = -1.0;
+            double prevheight = 0.0;
             comp.trackPath(
                 mayend.first ? mayend.second : graph.minkey(),
                 [&](std::pair<size_t, Eigen::Vector3d> const& v) {
-                    if (isInt(v.second(2))) {
-                        m_paths.back().emplace_back(
-                            modif(v.second),
-                            v.second(2) > prevlevel ? 1 : -1);
+                    if(m_paths.empty()) {
+                        m_paths.back().push_back({
+                                bord2::BeginPoint, v.second, 0.0});
                     }
-                    prevlevel = v.second(2);
+                    else if(isInt(v.second(2))) {
+                        m_paths.back().push_back({
+                            isInt(prevheight) ? bord2::Line : bord2::Bezier,
+                            modifZ(v.second, normh),
+                            prevheight });
+                    }
+                    prevheight = normh(v.second(2));
                 });
-            /*** BOOKMERK **/
         }
     }
 };

@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include <map>
 #include <cstring>
 #include "PlTang.hpp"
 #include "Graph.hpp"
@@ -64,6 +65,14 @@ public:
         return m_name;
     }
 
+    constexpr size_t hlength() const noexcept {
+        return m_tangBefore.hlength();
+    }
+
+    constexpr size_t vlength() const noexcept {
+        return m_tangBefore.vlength();
+    }
+
     constexpr PlTang<R,C> getBefore() const noexcept {
         return m_tangBefore;
     }
@@ -100,6 +109,45 @@ public:
         return m_tangBefore.isvalid();
     }
 
+    //! Mapping each vertex to a value.
+    template <
+        class F,
+        class T = decltype(std::declval<F>()(std::declval<size_t>(),
+                                             std::declval<size_t>(),
+                                             std::declval<char>()).second)
+        >
+    auto mapVertexIf(F const& f)
+        noexcept(noexcept(std::declval<F>()(std::declval<size_t>(),std::declval<size_t>(),std::declval<char>())))
+        -> std::map<size_t, T>
+    {
+        static_assert(
+            std::is_convertible<decltype(f(std::declval<size_t>(),std::declval<size_t>(),std::declval<char>()).first), bool>::value,
+            "The argument f must be of signature of the form std::pair<bool,T>(size_t,size_t,char)");
+
+        std::map<size_t, T> result;
+
+        m_tangBefore.traverse(
+            [&result, &f, this](size_t i, size_t j, char c) {
+                auto res = f(i,j,c);
+                if(res.first)
+                    result.emplace_hint(
+                        result.end(),
+                        i+j*hlength(),
+                        res.second);
+            } );
+        m_tangAfter.traverse(
+            [&result, &f, this](size_t i, size_t j, char c) {
+                auto res = f(i,j,c);
+                if(res.first)
+                    result.emplace_hint(
+                        result.end(),
+                        i+j*hlength() + hlength()*vlength(),
+                        res.second);
+            } );
+
+        return result;
+    }
+
     //! Comparison operator based on the lexicographical order on the names.
     constexpr bool operator<(PlTangMove<R,C> const& other) const noexcept {
         return std::strcmp(m_name, other.m_name) < 0;
@@ -118,17 +166,22 @@ public:
     }
 };
 
+//! Applying a move to a planar tangle.
+template<size_t R, size_t C, class M>
+constexpr
+void applyMove(PlTang<R,C>& pltang, M const& mv) noexcept
+{
+    pltang.replace(mv.x, mv.y, mv.move.getAfter());
+}
+
 //! Find the first move in a sequence that does not commute with former moves.
 //! \param begin The iterator pointing to the begining of the sequence.
 //! \param end The iterator pointing to the end of the sequence.
 //! \return The iterator pointing to the first move not commuting with former moves if found, or the end of the sequence otherwise.
-template <class T, size_t MVR, size_t MVC>
-constexpr
+template <size_t R, size_t C, class Iterator>
 auto
-noncommHead(T const& tangle,
-            typename PlTangMove<MVR,MVC>::MoveSeq::iterator begin,
-            typename PlTangMove<MVR,MVC>::MoveSeq::iterator const& end) noexcept
-    -> std::pair<typename PlTangMove<MVR,MVC>::MoveSeq::iterator, std::vector<bool>>
+noncommHead(PlTang<R,C> const& tangle, Iterator begin, Iterator const& end) noexcept
+    -> std::pair<Iterator, std::vector<bool>>
 {
     auto result = std::make_pair(
         begin,
@@ -138,15 +191,16 @@ noncommHead(T const& tangle,
         auto &mv = *result.first;
         auto &mvtbl = result.second;
 
-        if (!mvtbl[mv.x + mv.y*tangle.hlength()]
-            && !mvtbl[(mv.x+1) + mv.y*tangle.hlength()]
-            && !mvtbl[mv.x + (mv.y+1)*tangle.hlength()]
-            && !mvtbl[(mv.x+1) + (mv.y+1)*tangle.hlength()])
-        {
-            mvtbl[mv.x + mv.y*tangle.hlength()] = true;
-            mvtbl[(mv.x+1) + mv.y*tangle.hlength()] = true;
-            mvtbl[mv.x + (mv.y+1)*tangle.hlength()] = true;
-            mvtbl[(mv.x+1) + (mv.y+1)*tangle.hlength()] = true;
+        bool accumflag = true;
+
+        for(size_t i = 0; i < mv.move.hlength(); ++i)
+            for(size_t j = 0; j < mv.move.vlength(); ++j)
+                accumflag &= !mvtbl[(mv.x+i) + (mv.y+j)*tangle.hlength()];
+
+        if (accumflag) {
+            for(size_t i = 0; i < mv.move.hlength(); ++i)
+                for(size_t j = 0; j < mv.move.vlength(); ++j)
+                    mvtbl[(mv.x+i) + (mv.y+j)*tangle.hlength()] = true;
 
             ++result.first;
         }

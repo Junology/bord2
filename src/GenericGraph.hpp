@@ -461,9 +461,11 @@ protected:
 //! This function first searches a vertex which is mapped to a given value.
 //! If found, it returns the key; otherwise, it appends the given value as a new vertex and returns the key.
 //! In the search, given comparison function is used; default is std::equal_to.
-template <class K, class T, class Comp = std::equal_to<T>>
-K findAppend(GenericGraph<std::map<K,T>> &graph, T const& x, Comp const& comp = std::equal_to<T>()) noexcept
+template <class K, class T, class U, class Comp = std::equal_to<T>>
+K findAppend(GenericGraph<std::map<K,T>> &graph, U const& x, Comp const& comp = std::equal_to<T>()) noexcept
 {
+    static_assert(std::is_convertible<U&,T&>::value, "The type of the given value cannot be converted into mapped_type.");
+
     auto maybeval = graph.findKey(
         [&x, &comp](std::pair<K,T> const& val) {
             return comp(val.second, x);
