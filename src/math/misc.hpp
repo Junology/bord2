@@ -46,11 +46,11 @@ inline bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, st
     /*** Preparation ***/
     // Rotation matrix of M_PI/2 in radian.
     Eigen::Matrix<double,2,2> mat;
-    mat << 0, -1, 1, 0;
+    mat << 0, 1, -1, 0;
 
     // We may assume the vertices are given counter-clockwisely around triangles.
-    bool is_ccwise1 = static_cast<double>((t1_[2]-t1_[0]).adjoint()*mat*(t1_[1]-t1_[0])) > 0;
-    bool is_ccwise2 = static_cast<double>((t2_[2]-t2_[0]).adjoint()*mat*(t2_[1]-t2_[0])) > 0;
+    bool is_ccwise1 = static_cast<double>((t1_[1]-t1_[0]).adjoint()*mat*(t1_[2]-t1_[0])) > 0;
+    bool is_ccwise2 = static_cast<double>((t2_[1]-t2_[0]).adjoint()*mat*(t2_[2]-t2_[0])) > 0;
     std::array<std::array<Eigen::Vector2d const*, 3>,2> t{
         &(t1_[0]),
         is_ccwise1 ? &(t1_[1]) : &(t1_[2]),
@@ -64,17 +64,20 @@ inline bool trianglesIntersection2D(std::array<Eigen::Vector2d,3> const &t1_, st
 
     // Find an edge in one triangle which separates the opposite vertex and the vertices of the other triangle.
     // If found, this means two triangles are disjoint.
-    for(size_t n = 0; n < 1; ++n) {
-        size_t m = (n==0) ? 1 : 0;
+    for(size_t i = 0; i < 3; ++i) {
+        Eigen::RowVector2d rv = (*(t[0][(i+1)%3])-*(t[0][i])).adjoint()*mat;
+        if (static_cast<double>(rv*(*(t[1][0])-*(t[0][i]))) < 0
+            && static_cast<double>(rv*(*(t[1][1])-*(t[0][i]))) < 0
+            && static_cast<double>(rv*(*(t[1][2])-*(t[0][i]))) < 0)
+            return false;
+    }
 
-        for(size_t i = 0; i < 3; ++i) {
-            bool is_separated = false;
-            for(size_t j = 0; j < 3; ++j) {
-                is_separated |= (static_cast<double>((*(t[n][(i+1)%3])-*(t[n][i])).adjoint()*mat*(*(t[m][j])-*(t[n][i]))) < 0);
-            }
-            if(is_separated)
-                return false;
-        }
+    for(size_t i = 0; i < 3; ++i) {
+        Eigen::RowVector2d rv = (*(t[1][(i+1)%3])-*(t[1][i])).adjoint()*mat;
+        if (static_cast<double>(rv*(*(t[0][0])-*(t[1][i]))) < 0
+            && static_cast<double>(rv*(*(t[0][1])-*(t[1][i]))) < 0
+            && static_cast<double>(rv*(*(t[0][2])-*(t[1][i]))) < 0)
+            return false;
     }
 
     return true;
