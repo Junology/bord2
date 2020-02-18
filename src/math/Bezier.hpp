@@ -71,10 +71,10 @@ public:
     }
 
     //! Divide the Bezier curve using De Casteljau's algorithm.
-    constexpr auto divide(double t = 0.5) const noexcept
+    constexpr auto divide(double t = 0.5, double eps = 0.0) const noexcept
         -> std::pair< Bezier<vertex_type,degree>,Bezier<vertex_type,degree> >
     {
-        return divide_impl(std::make_index_sequence<num_pts>(), t);
+        return divide_impl(std::make_index_sequence<num_pts>(), t, eps);
     }
 
 protected:
@@ -91,14 +91,14 @@ protected:
     }
 
     template<size_t... Is>
-    constexpr auto divide_impl(std::index_sequence<Is...>, double t) const noexcept
+    constexpr auto divide_impl(std::index_sequence<Is...>, double t, double eps) const noexcept
         -> std::pair< Bezier<vertex_type,degree>,Bezier<vertex_type,degree> >
     {
         static_assert(sizeof...(Is)==num_pts, "Wrong number of arguments");
 
         return std::make_pair(
-            Bezier<vertex_type,degree>(eval_part<0,Is>(t)...),
-            Bezier<vertex_type,degree>(eval_part<Is,degree>(t)...) );
+            Bezier<vertex_type,degree>(eval_part<0,Is>(t+eps)...),
+            Bezier<vertex_type,degree>(eval_part<Is,degree>(t-eps)...) );
     }
 };
 

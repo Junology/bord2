@@ -224,3 +224,23 @@ TEST(Bezier2D, EachFaceHigher)
     EXPECT_EQ(faces[4][0], Eigen::Vector2d(0.0, 2.0));
     EXPECT_LT((faces[4][1]-Eigen::Vector2d(-1,0)).norm(), 10e-10);
 }
+
+TEST(Bezier2D, IntersectionLinLin)
+{
+    for(double t = 0.0; t < 2*M_PI; t += M_PI/10) {
+        Eigen::Matrix2d mat;
+        mat << cos(t), -sin(t), sin(t), cos(t);
+
+        auto bez1 = Bezier2D<1>(
+            mat*Eigen::Vector2d(-1.0, 0.0),
+            mat*Eigen::Vector2d(1.0, 0.0) );
+        auto bez2 = Bezier2D<1>(
+            mat*Eigen::Vector2d(0.8, 0.6),
+            mat*Eigen::Vector2d(0.8, -0.6) );
+        EXPECT_TRUE(bez1.hasHullIntersection(bez2));
+        auto params = intersect(bez1, bez2);
+        ASSERT_EQ(params.size(), 1) << "t=" << t;
+        EXPECT_LT(std::abs(params[0].first - 0.9), 10e-10);
+        EXPECT_LT(std::abs(params[0].second - 0.5), 10e-10);
+    }
+}

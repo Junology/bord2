@@ -25,7 +25,7 @@ if(GTEST_FOUND)
 	${CMAKE_SOURCE_DIR}/src/math/AffHypPlane.cpp
 	${CMAKE_SOURCE_DIR}/src/math/QuadraticCurve.cpp)
 
-  target_compile_options(${PROJECT_NAME_TEST} PUBLIC -Og -g -Wall)
+  target_compile_options(${PROJECT_NAME_TEST} PUBLIC -O0 -pg -g -Wall)
   target_link_libraries(${PROJECT_NAME_TEST}
 	Threads::Threads
 	Eigen3::Eigen
