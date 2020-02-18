@@ -172,6 +172,19 @@ struct firstoftwo {
 /************************!
  * \section Algorithms
  ************************/
+struct NullOutIterator
+    : std::iterator<std::output_iterator_tag, NullOutIterator>
+{
+    template<typename T>
+    constexpr NullOutIterator& operator=(T const&) noexcept { return *this; }
+
+    constexpr NullOutIterator& operator++() noexcept { return *this; }
+
+    constexpr NullOutIterator operator+=(int) noexcept { return *this; }
+    constexpr NullOutIterator& operator*() noexcept { return *this; }
+    constexpr NullOutIterator const& operator*() const noexcept { return *this; }
+};
+
 template<
     class InputIterator,
     class F,

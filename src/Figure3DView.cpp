@@ -27,6 +27,40 @@ EVT_KEY_DOWN(Figure3DView::OnKeyDown)
 END_EVENT_TABLE()
 
 
+/*************************
+ *** Utility functions ***
+ *************************/
+Eigen::Matrix<double,2,3> getOrthoProjMat(double elev, double azim) noexcept
+{
+    double t = M_PI*elev/180.0;
+    double u = M_PI*azim/180.0;
+
+    Eigen::Matrix<double,2,3> projmat;
+    projmat <<
+        cos(u),       -sin(u), 0,
+        // cos(t)*sin(u), cos(t)*cos(u), -sin(t),
+        sin(t)*sin(u), sin(t)*cos(u), cos(t);
+
+    return projmat;
+}
+
+Eigen::Matrix<double,2,3> getCabinetProjMat(double elev, double azim) noexcept
+{
+    double t = M_PI*elev/180.0;
+    double u = M_PI*azim/180.0;
+
+    Eigen::Matrix<double,2,3> projmat;
+    projmat <<
+        1.0, sin(elev)*cos(azim), 0.0,
+        0.0, sin(elev)*sin(azim), 1.0;
+
+    return projmat;
+}
+
+/************************
+ *** Member functions ***
+ ************************/
+
 //! Paint Event handler
 void Figure3DView::OnPaint(wxPaintEvent &event) {
     render(wxPaintDC(this));
@@ -62,10 +96,20 @@ void Figure3DView::OnKeyDown(wxKeyEvent &event)
     double u = M_PI*m_azim/180.0;
 
     Eigen::Matrix<double,2,3> projmat;
-    projmat <<
-        cos(u),       -sin(u), 0,
-        // cos(t)*sin(u), cos(t)*cos(u), -sin(t),
-        sin(t)*sin(u), sin(t)*cos(u), cos(t);
+    switch(m_prmode) {
+    case ProjectionMode::Orthographic:
+        projmat = getOrthoProjMat(m_elev, m_azim);
+        break;
+
+    case ProjectionMode::Cabinet:
+        projmat = getCabinetProjMat(m_elev, m_azim);
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
+        return;
+    }
 
     // Inform the change of the angles.
     if (mp_fig)
@@ -90,7 +134,20 @@ void Figure3DView::render(wxWindowDC &&dc)
 
     ProjSpatialScheme<WxGSScheme> wxgsOrtho{
         Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]}, std::move(dc)};
-    wxgsOrtho.ortho(m_elev, m_azim);
+    switch(m_prmode) {
+    case ProjectionMode::Orthographic:
+        wxgsOrtho.ortho(m_elev, m_azim);
+        break;
+
+    case ProjectionMode::Cabinet:
+        wxgsOrtho.cabinet(m_azim, sin(M_PI*m_elev/180.0));
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
+        return;
+    }
 
     mp_fig->draw(wxgsOrtho);
 }

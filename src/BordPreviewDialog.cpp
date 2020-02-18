@@ -15,18 +15,32 @@
 #include "ProjSpatialScheme.hpp"
 #include "ROEntryDialog.hpp"
 
+enum {
+    BPID_LOWEST = wxID_HIGHEST, // It is safe to use any id above this.
+    BPID_ORTHO,
+    BPID_CABINET
+};
+
 wxIMPLEMENT_DYNAMIC_CLASS(BordPreviewDialog, wxFrame);
 
 wxBEGIN_EVENT_TABLE(BordPreviewDialog, wxFrame)
 EVT_CLOSE(BordPreviewDialog::OnClose)
+EVT_MENU(BPID_ORTHO, BordPreviewDialog::OnProjOrtho)
+EVT_MENU(BPID_CABINET, BordPreviewDialog::OnProjCabinet)
 EVT_MENU(wxID_INFO, BordPreviewDialog::OnTikz)
+EVT_MENU(wxID_EXIT, BordPreviewDialog::OnExit)
 wxEND_EVENT_TABLE()
 
 void BordPreviewDialog::CreateControls()
 {
     // Menubar
     wxMenu *menuView = new wxMenu;
+    menuView->AppendRadioItem(BPID_ORTHO, "Orthographic Projection");
+    menuView->AppendRadioItem(BPID_CABINET, "Cabinet Projection");
+    menuView->AppendSeparator();
     menuView->Append(wxID_INFO, "Show Tikz code");
+    menuView->AppendSeparator();
+    menuView->Append(wxID_EXIT, "&Close");
 
     wxMenuBar *menuBar = new wxMenuBar;
     menuBar->Append(menuView, "&View");
@@ -59,6 +73,16 @@ void BordPreviewDialog::OnClose(wxCloseEvent &event)
         Destroy();
 }
 
+void BordPreviewDialog::OnProjOrtho(wxCommandEvent &event)
+{
+    m_drawPane->setProjMode(Figure3DView::ProjectionMode::Orthographic);
+}
+
+void BordPreviewDialog::OnProjCabinet(wxCommandEvent &event)
+{
+    m_drawPane->setProjMode(Figure3DView::ProjectionMode::Cabinet);
+}
+
 void BordPreviewDialog::OnTikz(wxCommandEvent &event)
 {
     double elev = m_drawPane->getElev();
@@ -82,3 +106,9 @@ void BordPreviewDialog::OnTikz(wxCommandEvent &event)
         + scheme.getBase()->getTikzCode());
     dlg.ShowModal();
 }
+
+void BordPreviewDialog::OnExit(wxCommandEvent& event)
+{
+    Close(false);
+}
+

@@ -20,7 +20,7 @@
 #include "PlTangFigure.hpp"
 #include "PathFigure3D.hpp"
 
-#include <iostream> // Debug
+// #include <iostream> // Debug
 
 template <class T>
 class TangleMoveFigure;
@@ -365,12 +365,6 @@ protected:
 
             return hei;
         };
-
-        //* Debug
-        std::cout << __FILE__":" << __LINE__ << std::endl;
-        for(auto l : levels)
-            std::cout << l << std::endl;
-        // */
 
         // Integral detector
         auto isInt = [](double x) -> bool {

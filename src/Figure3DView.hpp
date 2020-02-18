@@ -22,20 +22,27 @@ class Figure3DView : public wxPanel
     wxDECLARE_DYNAMIC_CLASS(Figure3DView);
     wxDECLARE_EVENT_TABLE();
 
-private:
-    std::unique_ptr<PathFigure3D> mp_fig{};
-    double m_elev{0.0}, m_azim{0.0};
-    std::array<double,3> m_focus{0.0, 0.0, 0.0};
-
 public:
     enum : long {
         MDP_DEFAULT_STYLE = wxTAB_TRAVERSAL
+    };
+
+    enum ProjectionMode {
+        Orthographic,
+        Cabinet
     };
 
     typedef enum _Error {
         FailedCreatingGC
     } Error;
 
+private:
+    std::unique_ptr<PathFigure3D> mp_fig{};
+    ProjectionMode m_prmode = Orthographic;
+    double m_elev{0.0}, m_azim{0.0};
+    std::array<double,3> m_focus{0.0, 0.0, 0.0};
+
+public:
     Figure3DView()
         : wxPanel{}
     {
@@ -56,6 +63,9 @@ public:
     double getElev() const noexcept { return m_elev; }
     double getAzim() const noexcept { return m_azim; }
     std::array<double,3> const& getFocus() const noexcept { return m_focus; }
+
+    ProjectionMode getProjMode() const noexcept { return m_prmode; }
+    void setProjMode(ProjectionMode prmode) noexcept { m_prmode = prmode; }
 
     //! Set a figure.
     //! \param pfig A pointer to an instance of PathFigure3D which will be stored in std::unique_ptr; so one must not delete it unless \see release().

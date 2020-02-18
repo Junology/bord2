@@ -25,16 +25,17 @@ class BordPreviewDialog : public wxFrame
     wxDECLARE_EVENT_TABLE();
 
 public:
+    enum : long {
+        BPD_DEFAULT_STYLE = wxCAPTION | wxCLOSE_BOX | wxSYSTEM_MENU | wxRESIZE_BORDER | wxTAB_TRAVERSAL | wxDIALOG_NO_PARENT
+    };
+
     using TangType = PlTang<>;
+
 private:
     Figure3DView *m_drawPane = nullptr;
     TangleMoveFigure<PlTang<>> *mp_tangleFig = nullptr;
 
 public:
-    enum : long {
-        BPD_DEFAULT_STYLE = wxCAPTION | wxCLOSE_BOX | wxSYSTEM_MENU | wxRESIZE_BORDER | wxTAB_TRAVERSAL | wxDIALOG_NO_PARENT
-    };
-
     BordPreviewDialog() : wxFrame() {}
 
     BordPreviewDialog(wxWindow *parent,
@@ -91,6 +92,9 @@ protected:
 
     /** Event handlers **/
     void OnClose(wxCloseEvent &event);
+    void OnProjOrtho(wxCommandEvent&);
+    void OnProjCabinet(wxCommandEvent&);
     void OnTikz(wxCommandEvent &event);
+    void OnExit(wxCommandEvent &event);
 };
 
