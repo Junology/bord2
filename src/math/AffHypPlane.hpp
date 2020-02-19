@@ -30,23 +30,17 @@ private:
     VecT m_normal;
     double m_c;
 
-    template<size_t... is>
-    constexpr AffHypPlane(std::array<double,dim> const & normal, double c, std::index_sequence<is...>)
-        : m_normal(normal[is]...), m_c(c)
-    {}
-
 public:
-    constexpr AffHypPlane(std::array<double,dim> const & normal, double c)
-    : AffHypPlane<n>(normal, c, std::make_index_sequence<n>())
+    AffHypPlane(std::array<double,dim> const & normal, double c)
+        : m_normal(Eigen::Map<const VecT>(&normal[0], dim)), m_c(c)
     {}
 
-    constexpr AffHypPlane(VecT const &normal, VecT const &refpt)
-        : m_normal(normal), m_c(-normal.adjoint()*refpt)
+    AffHypPlane(VecT const &normal, VecT const &refpt)
+        : m_normal(normal), m_c(-normal.dot(refpt))
     {}
 
     AffHypPlane(AffHypPlane<n> const &) = default;
     AffHypPlane(AffHypPlane<n> &&) = default;
-    ~AffHypPlane() = default;
 
     //! Compute an intersection with another hyper plane.
     //! The function is specialized in case of dimension 2.
@@ -66,16 +60,19 @@ public:
 
     //! Compute the height of a given point from the hyperplane.
     //! \warning: The value is not normalized; or with respect to the normal vector of the hyperplane.
-    constexpr double height(VecT const &v) const
+    double height(VecT const &v) const
     {
-        return static_cast<double>(m_normal.adjoint()*v) + m_c;
+        return m_normal.dot(v) + m_c;
     }
 
     template <class... Ts>
-    constexpr auto height(Ts&&... xs) const
-        -> std::enable_if_t<sizeof...(Ts)==dim && bord2::allTrue({std::is_convertible<Ts,double>::value...}), double>
+    double height(double x, Ts... xs) const
     {
-        return height(VecT(std::forward<double>(xs)...));
+        static_assert(1+sizeof...(Ts)==dim, "Wrong number of arguments.");
+        static_assert(
+            bord2::allTrue({std::is_convertible<Ts,double>::value...}),
+            "The arguments must be convertible to double." );
+        return height(VecT(x, xs...));
     }
 };
 

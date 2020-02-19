@@ -70,11 +70,41 @@ public:
         return eval_part<0,degree>(t);
     }
 
+    //! Check if all the control points satisfy a given condition
+    template <class F>
+    bool allSatisfy(F const& f) const noexcept {
+        static_assert(
+            std::is_convertible<
+                decltype(f(std::declval<vertex_type const&>())),
+                bool
+            >::value, "The condition has an illegal signature.");
+        for(size_t i = 0; i < num_pts; ++i) {
+            if (!f(m_pts[i])) return false;
+        }
+        return true;
+    }
+
     //! Divide the Bezier curve using De Casteljau's algorithm.
     constexpr auto divide(double t = 0.5, double eps = 0.0) const noexcept
         -> std::pair< Bezier<vertex_type,degree>,Bezier<vertex_type,degree> >
     {
         return divide_impl(std::make_index_sequence<num_pts>(), t, eps);
+    }
+
+    //! Clip the Bezier curve to the one with the parameter on a given interval.
+    //! \warning May cause 0 division when t0 = t1.
+    constexpr auto clip(double t0, double t1) const noexcept
+        -> Bezier<vertex_type, degree>
+    {
+        return clip_impl(std::make_index_sequence<num_pts>(), t0, t1);
+    }
+
+    //! Convert into Bezier curve of the same degree while with another vertex_type.
+    template <class F>
+    auto convert(F&& f) const
+        -> Bezier<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),degree>
+    {
+        return convert_impl(std::make_index_sequence<num_pts>(), std::forward<F>(f));
     }
 
 protected:
@@ -100,5 +130,22 @@ protected:
             Bezier<vertex_type,degree>(eval_part<0,Is>(t+eps)...),
             Bezier<vertex_type,degree>(eval_part<Is,degree>(t-eps)...) );
     }
-};
 
+    template<size_t... Is>
+    constexpr auto clip_impl(std::index_sequence<Is...>, double t0, double t1) const noexcept {
+        auto aux = Bezier<vertex_type, degree>{eval_part<0,Is>(t1)...};
+        double t = t0/t1;
+        return Bezier<vertex_type, degree>(
+            aux.template eval_part<Is,degree>(t)...
+            );
+    }
+
+    template <class F, size_t... Is>
+    auto convert_impl(std::index_sequence<Is...>, F&& f) const
+        -> Bezier<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),degree>
+    {
+        return Bezier<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),degree>{
+            f(m_pts[Is])...
+        };
+    }
+};

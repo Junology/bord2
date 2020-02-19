@@ -11,11 +11,86 @@
 #include "Bezier.hpp"
 
 #include <set>
+#include <map>
 #include <numeric>
+#include <thread>
 
+#include "AffHypPlane.hpp"
 #include "misc.hpp"
 
 #include <iostream> // Debug
+
+namespace bord2 {
+struct Rect {
+    // Coordinate is chosen so that left-to-right and bottom-to-top.
+    double left, right, top, bottom;
+    bool contains(Eigen::Vector2d const& pt) const noexcept {
+        return left <= pt(0) && pt(0) <= right
+            && bottom <= pt(1) && pt(1) <= top;
+    }
+
+    bool isOverlapping(Rect const& other) const noexcept {
+        return left <= other.right
+            && right >= other.left
+            && top >= other.bottom
+            && bottom <= other.top;
+    }
+};
+
+struct FatLine {
+    AffHypPlane<2> line;
+    double min_height, max_height;
+    bool contains(Eigen::Vector2d const& pt) const noexcept {
+        double height = line.height(pt);
+        return min_height <= height && height <= max_height;
+    }
+};
+
+//! Closed interval
+struct Interval{
+    double beg, end;
+    constexpr bool contains(double t) const noexcept {
+        return beg <= t && t <= end;
+    }
+    constexpr Interval first(double eps = 0.0) const noexcept {
+        return {beg, beg/2 + end/2 + eps};
+    }
+    constexpr Interval latter(double eps = 0.0) const noexcept {
+        return {beg/2 + end/2 - eps, end};
+    }
+    constexpr bool isDividable() const noexcept {
+        auto mid = beg/2 + end/2;
+        return beg < mid && mid < end;
+    }
+
+    // Composition in the sense of that in the little 1-cubes operad.
+    constexpr Interval comp(Interval const& inner) const noexcept {
+        return Interval{beg + inner.beg*(end-beg), beg + inner.end*(end-beg)};
+    }
+
+    // Lexicographical ordering
+    constexpr bool operator<(Interval const& rhs) const noexcept {
+        return beg<rhs.beg || (beg==rhs.beg && end<rhs.end);
+    }
+};
+
+enum Orientation {
+    OnLine,
+    Clockwise,
+    CntrClockwise
+};
+
+inline Orientation orientation(Eigen::Vector2d const& p0, Eigen::Vector2d const& p1, Eigen::Vector2d const& p2) noexcept {
+    Eigen::Vector2d v = p2-p0;
+    double innprod = (p1-p0).dot(Eigen::Vector2d(v(1),-v(0)));
+    if (innprod > 0.0)
+        return CntrClockwise;
+    else if (innprod < 0.0)
+        return Clockwise;
+    else
+        return OnLine;
+}
+}
 
 template <size_t deg>
 struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
@@ -39,73 +114,191 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
         : Bezier<Eigen::Vector2d,deg>(std::move(src))
     {}
 
-    //! Apply an operation on each face of the convex hull of control points.
-    //! \param f The function-like object looks like as follows:
-    //!   >> T f(vertex_type const& point, vertex_type const& normal);
-    //! where two arguments point and normal determines a face in the following way:
-    //!   - point is a point that belongs to the face;
-    //!   - normal is the normal vector of the face pointing outside of the convex hull.
-    //! \return Whether the procedure finished successfully.
-    template <class F>
-    bool forEachFace(F const& f) const noexcept
+    bord2::Rect getRect() const noexcept {
+        bord2::Rect result{
+            BaseType::m_pts[0](0),
+            BaseType::m_pts[0](0),
+            BaseType::m_pts[0](1),
+            BaseType::m_pts[0](1)
+        };
+
+        for(size_t i = 1; i < BaseType::num_pts; ++i) {
+            if (BaseType::m_pts[i](0) < result.left)
+                result.left = BaseType::m_pts[i](0);
+            else if (BaseType::m_pts[i](0) > result.right)
+                result.right = BaseType::m_pts[i](0);
+            if (BaseType::m_pts[i](1) > result.top)
+                result.top = BaseType::m_pts[i](1);
+            else if (BaseType::m_pts[i](1) < result.bottom)
+                result.bottom = BaseType::m_pts[i](1);
+        }
+        return result;
+    }
+
+    bord2::FatLine getFatLine() const noexcept {
+        vertex_type tangent = BaseType::m_pts[deg]-BaseType::m_pts[0];
+        vertex_type normal
+            = tangent.isZero()
+            ? Eigen::Vector2d(0.0, 1.0)
+            : Eigen::Vector2d(-tangent(1), tangent(0));
+        normal.normalize();
+        bord2::FatLine result = {
+            AffHypPlane<2>(normal, BaseType::m_pts[0]),
+            0.0, 0.0
+        };
+
+        for(size_t i = 1; i < deg; ++i) {
+            double height = result.line.height(BaseType::m_pts[i]);
+            if (height < result.min_height)
+                result.min_height = height;
+            if (height > result.max_height)
+                result.max_height = height;
+        }
+        return result;
+    }
+
+    //! Check if there is a control point lying in a given shape.
+    //! \param shape The shape which has a member function of signature
+    //!   >> bool T::contains(Eigen::Vector2d const&);
+    template <class T>
+    bool ctrlLiesIn(T const& shape) const noexcept(T::contains(std::declval<T*>(), std::declval<Eigen::Vector2d const&>())) {
+        for(auto pt : BaseType::m_pts) {
+            if (shape.contains(pt))
+                return true;
+        }
+        return false;
+    }
+
+    //! Clip the Bezier curve by a fatline.
+    //! See the paper Nishita, Takita, Nakamae, "Hidden Curve Elimination of Trimmed Surfaces Using Bezier Clipping."
+    //! \param fatline The fatline clipping the Bezier curve.
+    //! \param num The number (or depth) of clipping.
+    auto clipByFL(bord2::FatLine const& fatline, size_t num, double eps = 0.0) const noexcept
+        -> std::vector<bord2::Interval>
     {
-        // Remove duplicates and sort by lexicographical ordering.
-        // In particular, the first element is a left-most vertex while the last right-most.
-        struct Vec2LexLess {
-            bool operator()(vertex_type const& lhs, vertex_type const& rhs)
-            {
-                return lhs(0)<rhs(0) || (lhs(0)==rhs(0) && lhs(1)<rhs(1));
+        // The list of Bezier functions (i.e. Bezier curves in the one-dimensional Euclidean plane) obtained by clipping the projection of the original Bezier curve.
+        std::vector<Bezier<double,deg>> bez = {
+            BaseType::convert(
+                [&fatline](vertex_type const& pt) -> double {
+                    return fatline.line.height(pt);
+                } )
+        };
+        // The list of intervals obtained from the unit interval by the same clippings as bez.
+        std::vector<bord2::Interval> result = {
+            bord2::Interval{0.0, 1.0}
+        };
+        // Temporary variables.
+        decltype(bez) bez_aux;
+        decltype(result) result_aux;
+
+        // Check not if all the control points of a Bezier function lie above or below of the fatline.
+        auto ctrlOutOfFL = [&fatline](Bezier<double,deg> const& b) {
+            return b.allSatisfy([&fatline](double t) { return t < fatline.min_height; })
+                || b.allSatisfy([&fatline](double t) { return t > fatline.max_height; });
+        };
+
+        // Begin iteration: width-first binary search.
+        for(size_t n = 0; n < num; ++n) {
+            if (result.empty())
+                return {};
+
+            // Clear the temporary buffers.
+            bez_aux.clear();
+            result_aux.clear();
+
+            // Traverse all clipped Bezier function.
+            for(size_t i = 0; i < bez.size(); ++i) {
+                // Divide the curve and the interval, and puth onto the stack
+                auto bezdiv = bez[i].divide(0.5, eps);
+
+                // Check if the convex hulls of the control points of the divided Bezier curves intersects with the fatline.
+                // If so, push them onto the stack
+                if (!ctrlOutOfFL(bezdiv.first)) {
+                    bez_aux.push_back(bezdiv.first);
+                    result_aux.push_back(result[i].first(eps));
+                }
+                if (!ctrlOutOfFL(bezdiv.second)) {
+                    bez_aux.push_back(bezdiv.second);
+                    result_aux.push_back(result[i].latter(eps));
+                }
+            }
+
+            // Update the data
+            bez.swap(bez_aux);
+            result.swap(result_aux);
+        }
+
+        return result;
+    }
+
+    template <size_t N>
+    bool hasRectOverlap(Bezier2D<N> const& other) const noexcept {
+        return getRect().isOverlapping(other.getRect());
+    }
+
+    //! Compute the convex hull.
+    //! \return A list of control points spanning the hull. They are stored in the counter-clockwise order.
+    std::vector<vertex_type> getConvexHull() const noexcept
+    {
+        // Return immediately if there are at most one control point.
+        if (deg <= 0)
+            return {};
+
+        // Find a control point with the minimal y-coordinate.
+        auto miny_itr = std::min_element(
+            std::begin(BaseType::m_pts),
+            std::end(BaseType::m_pts),
+            [](Eigen::Vector2d const& lhs, Eigen::Vector2d const& rhs) {
+                return lhs(1)<rhs(1) || (lhs(1)==rhs(1) && lhs(0)<rhs(0));
+            } );
+
+        // angle-radius lexicographical ordering on 2d vectors.
+        struct PolarLexLess {
+            Eigen::Vector2d const& m_orig;
+            PolarLexLess(Eigen::Vector2d const& orig) : m_orig(orig) {}
+            bool operator()(Eigen::Vector2d const& lhs, Eigen::Vector2d const& rhs) const noexcept {
+                switch(bord2::orientation(m_orig, lhs, rhs)) {
+                case bord2::OnLine:
+                    return (lhs-m_orig).norm() < (rhs-m_orig).norm();
+
+                case bord2::Clockwise:
+                    return false;
+
+                case bord2::CntrClockwise:
+                    return true;
+                }
             }
         };
-        std::set<vertex_type,Vec2LexLess> nubpts(
-            std::begin(BaseType::m_pts),
-            std::end(BaseType::m_pts) );
+        // Store the point in the angle-radius lexicographical order.
+        std::set<Eigen::Vector2d,PolarLexLess> buf{PolarLexLess(*miny_itr)};
+        for(auto itr = std::begin(BaseType::m_pts); itr != std::end(BaseType::m_pts); ++itr) {
+            if (itr == miny_itr)
+                continue;
 
-        // Return immediately if there are only at most one essential vertices.
-        if(nubpts.size() <= 1)
-            return true;
+            if (!(*itr-*miny_itr).isZero())
+                buf.insert(*itr);
+        }
 
-        // Rotation matrix for 90 degree in clockwise.
-        Eigen::Matrix2d rotR;
-        rotR << 0.0, 1.0, -1.0, 0.0;
+        // If no points in buffer, return immediately.
+        if (buf.empty())
+            return {};
 
-        // The iterator pointing to a vertex from which a face begins.
-        auto itr = nubpts.begin();
-        // The tangent vector to a face so that every control point lie on the left.
-        Eigen::Vector2d vec(0.0, -1.0);
+        // Push the initial point and the next to the result stack.
+        std::vector<Eigen::Vector2d> result = {
+            *miny_itr, *buf.begin()
+        };
+        buf.erase(buf.begin());
 
-        do {
-            // Find the next vertex
-            auto itr_next = std::max_element(
-                nubpts.begin(),
-                nubpts.end(),
-                [&itr,&vec](vertex_type const& lhs, vertex_type const& rhs) {
-                    if (lhs == *itr)
-                        return rhs != *itr;
-                    else if (rhs == *itr)
-                        return false;
-                    else
-                        return vec.dot(lhs-*itr)/(lhs-*itr).norm()
-                            < vec.dot(rhs-*itr)/(rhs-*itr).norm();
-                } );
-
-            if(itr_next == itr) {
-                // Error
-                return false;
+        // Traverse all the control points in the buffer.
+        for(auto pt : buf) {
+            // Pop the points from the stack until a counter-clock triangle is found.
+            while(bord2::orientation(result[result.size()-2], result.back(), pt) != bord2::CntrClockwise) {
+                result.pop_back();
             }
+            result.push_back(pt);
+        }
 
-            // Compute the tangent vector to the current face.
-            vec = *itr_next - *itr;
-            vec.normalize();
-
-            // Execute the operation
-            f(*itr, rotR*vec);
-
-            // Go to next vertex.
-            itr = itr_next;
-        } while(itr != nubpts.begin());
-
-        return true;
+        return result;
     }
 
     //! Check if the convex hull of control points overlaps with that of another Bezier curve.
@@ -115,32 +308,47 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
     {
         bool is_separated = false;
 
-        forEachFace(
-            [&is_separated,&other](vertex_type const& pt, vertex_type const& nv) {
-                is_separated |= std::accumulate(
-                    std::begin(other.m_pts),
-                    std::end(other.m_pts),
-                    true,
-                    [&pt, &nv](bool p, vertex_type const& o_pt) {
-                        return p && nv.dot(o_pt - pt) > 0.0;
-                    } );
-            } );
-        other.forEachFace(
-            [&is_separated,this](vertex_type const& pt, vertex_type const& nv) {
-                is_separated |= std::accumulate(
-                    std::begin(this->m_pts),
-                    std::end(this->m_pts),
-                    true,
-                    [&pt, &nv](bool p, vertex_type const& this_pt) {
-                        return p && nv.dot(this_pt - pt) > 0.0;
-                    } );
-            } );
+        Eigen::Matrix2d rmat;
+        rmat << 0.0, -1.0, 1.0, 0.0;
 
-        return !is_separated;
+        auto hull = getConvexHull();
+        for(size_t i = 1; i < hull.size(); ++i) {
+            is_separated = other.allSatisfy(
+                [&hull, &rmat, &i](vertex_type const& o_pt) -> bool{
+                    return (hull[i]-hull[i-1]).dot(rmat*(o_pt-hull[i-1])) > 0;
+                } );
+            if (is_separated)
+                return false;
+        }
+        is_separated = other.allSatisfy(
+            [&hull, &rmat](vertex_type const& o_pt) -> bool{
+                return (hull.front()-hull.back()).dot(rmat*(o_pt-hull.back())) > 0;
+                } );
+        if (is_separated)
+            return false;
+
+        hull = other.getConvexHull();
+        for(size_t i = 1; i < hull.size(); ++i) {
+            is_separated = BaseType::allSatisfy(
+                [&hull, &rmat, &i](vertex_type const& o_pt) -> bool{
+                    return (hull[i]-hull[i-1]).dot(rmat*(o_pt-hull[i-1])) > 0;
+                } );
+            if (is_separated)
+                return false;
+        }
+        is_separated = BaseType::allSatisfy(
+            [&hull, &rmat](vertex_type const& o_pt) -> bool{
+                return (hull.front()-hull.back()).dot(rmat*(o_pt-hull.back())) > 0;
+            } );
+        if (is_separated)
+            return false;
+
+        return true;
     }
 };
 
 //! Compute the intersections with another 2d bezier curve.
+//! We use iterated mutual Bezier clipping algorithm.
 //! \return The list of parameters where two bezier curves intersect. As for each element of the vector, the first component is the parameter for *this* class while the second is the one for *other*.
 template <size_t M, size_t N>
 auto intersect(Bezier2D<M> const& lhs, Bezier2D<N> const& rhs) noexcept
@@ -148,100 +356,89 @@ auto intersect(Bezier2D<M> const& lhs, Bezier2D<N> const& rhs) noexcept
 {
     using LHSBezier = Bezier2D<M>;
     using RHSBezier = Bezier2D<N>;
-    struct Interval{
-        double beg, end;
-        Interval first(double eps = 0.0) const noexcept {
-            return {beg, beg/2 + end/2 + eps};
-        }
-        Interval latter(double eps = 0.0) const noexcept {
-            return {beg/2 + end/2 - eps, end};
-        }
-        bool isDividable() const noexcept {
-            auto mid = beg/2 + end/2;
-            return beg < mid && mid < end;
-        }
-    };
+    using typename bord2::Interval;
 
-    std::vector<std::pair<LHSBezier,RHSBezier>> bezier_stack{
-        std::make_pair(lhs,rhs)
+    std::map<Interval, std::vector<Interval>> interval_map{
+        std::make_pair(Interval{0.0, 1.0},
+                       std::vector<Interval>{Interval{0.0, 1.0}})
     };
-    decltype(bezier_stack) bezier_aux;
-    std::vector<std::array<Interval,2>> interval_stack{
-        std::array<Interval,2>{Interval{0.0, 1.0}, Interval{0.0, 1.0}}
-    };
-    decltype(interval_stack) interval_aux;
+    decltype(interval_map) interval_aux;
 
     // cf 2^30 = 1073741824 ~ 10^9
-    constexpr size_t max_steps = 36;
-    constexpr double smp_dur = bord2::cipow(0.5, max_steps);
+    constexpr size_t max_steps = 9;
+    constexpr size_t clip_depth = 4;
+    constexpr double smp_dur = bord2::cipow(0.5, max_steps-1);
+    constexpr double eps = bord2::cipow(0.5, max_steps*clip_depth);
+
     for(size_t i = 0; i < max_steps; ++i) {
+        if (interval_map.empty())
+            return {};
+
+        interval_aux.clear();
+        for(auto& ipair : interval_map) {
+            LHSBezier bezl = lhs.clip(ipair.first.beg, ipair.first.end);
+            for(auto& intrvl : ipair.second) {
+                RHSBezier bezr = rhs.clip(intrvl.beg, intrvl.end);
+                auto left_clips = bezl.clipByFL(bezr.getFatLine(),
+                                                clip_depth,
+                                                eps);
+
+                if(left_clips.empty())
+                   continue;
+
+                for(auto& clipper : left_clips) {
+                    auto itr = interval_aux.emplace(
+                        ipair.first.comp(clipper), std::vector<Interval>{});
+                    LHSBezier bezl_clipped
+                        = bezl.clip(clipper.beg, clipper.end);
+                    auto intvlR
+                        = bezr.clipByFL(bezl_clipped.getFatLine(),
+                                        clip_depth,
+                                        eps);
+                    std::transform(
+                        intvlR.begin(), intvlR.end(),
+                        std::back_inserter(itr.first->second),
+                        [&intrvl](Interval const& ts) -> Interval {
+                            return intrvl.comp(ts);
+                        } );
+                }
+            }
+        }
+        interval_map.swap(interval_aux);
+
         /* Debug
         std::cout << __FILE__":" << __LINE__ << std::endl;
-        std::cout << "Step " << i << ", Candiates:" << std::endl;
-        for(auto intvl : interval_stack) {
-            std::cout << "[" << intvl[0].beg << "," << intvl[0].end << "]"
-                      << " [" << intvl[1].beg << "," << intvl[1].end << "]"
-                      << " length=" << intvl[0].end-intvl[0].beg
-                      << std::endl;
+        for(auto& ipair : interval_map) {
+            std::cout << "[" << ipair.first.beg
+                      << "," << ipair.first.end
+                      << "] intersects with:" << std::endl;
+            for(auto& clipper : ipair.second) {
+                std::cout << "- [" << clipper.beg
+                          << "," << clipper.end
+                          << "]" << std::endl;
+            }
         }
         // */
-
-        bezier_aux.clear();
-        interval_aux.clear();
-        std::transform(
-            bezier_stack.begin(),
-            bezier_stack.end(),
-            interval_stack.begin(),
-            bord2::NullOutIterator{},
-            [&bezier_aux,&interval_aux](std::pair<LHSBezier,RHSBezier> const& bez, std::array<Interval,2> const& interval) -> int {
-                if(!bez.first.hasHullIntersection(bez.second))
-                    return 0;
-                auto lhsdiv = bez.first.divide(0.5, smp_dur);
-                auto rhsdiv = bez.second.divide(0.5, smp_dur);
-                bezier_aux.emplace_back(
-                    LHSBezier(lhsdiv.first), RHSBezier(rhsdiv.first));
-                interval_aux.push_back({ interval[0].first(smp_dur),
-                                         interval[1].first(smp_dur) });
-                if (interval[0].isDividable()) {
-                    bezier_aux.emplace_back(
-                        LHSBezier(lhsdiv.second), RHSBezier(rhsdiv.first));
-                    interval_aux.push_back({ interval[0].latter(smp_dur),
-                                             interval[1].first(smp_dur) });
-                }
-
-                if(interval[1].isDividable()) {
-                    bezier_aux.emplace_back(
-                        LHSBezier(lhsdiv.first), RHSBezier(rhsdiv.second));
-                    interval_aux.push_back({ interval[0].first(smp_dur),
-                                             interval[1].latter(smp_dur) });
-                }
-
-                if(interval[0].isDividable() && interval[1].isDividable()) {
-                    bezier_aux.emplace_back(
-                        LHSBezier(lhsdiv.second), RHSBezier(rhsdiv.second));
-                    interval_aux.push_back({ interval[0].latter(smp_dur),
-                                             interval[1].latter(smp_dur) });
-                }
-
-                return 0;
-            } );
-        std::swap(bezier_stack, bezier_aux);
-        std::swap(interval_stack, interval_aux);
     }
 
     std::vector<std::pair<double,double>> result{};
-    std::for_each(
-        interval_stack.begin(),
-        interval_stack.end(),
-        [&result](std::array<Interval,2> const& interval) {
-            double t0 = interval[0].beg/2 + interval[0].end/2;
-            double t1 = interval[1].beg/2 + interval[1].end/2;
+    for(auto& ipair : interval_map) {
+        auto& intervalL = ipair.first;
+        for(auto& intervalR : ipair.second) {
+            double t0 = intervalL.beg/2 + intervalL.end/2;
+            double t1 = intervalR.beg/2 + intervalR.end/2;
 
-            if(result.empty()
-               || std::abs(result.back().first - t0) > 4*smp_dur
-               || std::abs(result.back().second - t1) > 4*smp_dur) {
+            auto itr = std::find_if(
+                result.begin(),
+                result.end(),
+                [&t0, &t1](std::pair<double,double> const& params) -> bool{
+                    return std::abs(params.first -t0) <= smp_dur + 2*eps
+                        && std::abs(params.second - t1) <= smp_dur + 2*eps;
+                } );
+            if(itr == result.end()) {
                 result.emplace_back(t0, t1);
             }
-        } );
+        }
+    }
     return result;
 }
