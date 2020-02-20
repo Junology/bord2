@@ -1,5 +1,5 @@
 /*!
- * \file BitArrY.hpp
+ * \file BitArray.hpp
  * \author Jun Yoshida
  * \copyright (c) 2019-2020 Jun Yoshida.
  * The project is released under the MIT License.

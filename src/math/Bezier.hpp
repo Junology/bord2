@@ -13,6 +13,7 @@
 #include <array>
 
 #include "../utils.hpp"
+#include "../utils/VarUnion.hpp"
 
 //#include <iostream> // Debug
 
@@ -36,7 +37,8 @@ public:
     };
 
 protected:
-    std::array<vertex_type, num_pts> m_pts;
+    //std::array<vertex_type, num_pts> m_pts;
+    vertex_type m_pts[num_pts];
 
 public:
     template <
@@ -59,11 +61,28 @@ public:
 
     //! Get a control point.
     template<size_t i>
-    constexpr auto get() const noexcept
-        -> std::enable_if_t<(i<num_pts), vertex_type const&>
-    {
+    constexpr vertex_type const& get() const noexcept {
+        static_assert(i<num_pts, "Index ouf of range.");
         return m_pts[i];
     }
+
+    constexpr vertex_type const& source() const noexcept {
+        return m_pts[0];
+    }
+
+    constexpr vertex_type const& target() const noexcept {
+        return m_pts[degree];
+    }
+
+    /*! \name Range access interface */
+    //@{
+    constexpr vertex_type* begin() noexcept { return std::begin(m_pts); }
+    constexpr vertex_type const* begin() const noexcept { return std::begin(m_pts); }
+    constexpr vertex_type* end() noexcept { return std::end(m_pts); }
+    constexpr vertex_type const* end() const noexcept { return std::end(m_pts); }
+    constexpr vertex_type const* cbegin() const noexcept { return std::cbegin(m_pts); }
+    constexpr vertex_type const* cend() const noexcept { return std::cend(m_pts); }
+    //@}
 
     //! Evaluate the point at parameter t.
     constexpr vertex_type eval(double t) const noexcept {
@@ -72,7 +91,7 @@ public:
 
     //! Check if all the control points satisfy a given condition
     template <class F>
-    bool allSatisfy(F const& f) const noexcept {
+    constexpr bool allSatisfy(F const& f) const noexcept {
         static_assert(
             std::is_convertible<
                 decltype(f(std::declval<vertex_type const&>())),
@@ -101,7 +120,7 @@ public:
 
     //! Convert into Bezier curve of the same degree while with another vertex_type.
     template <class F>
-    auto convert(F&& f) const
+    constexpr auto convert(F&& f) const
         -> Bezier<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),degree>
     {
         return convert_impl(std::make_index_sequence<num_pts>(), std::forward<F>(f));
@@ -147,5 +166,177 @@ protected:
         return Bezier<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),degree>{
             f(m_pts[Is])...
         };
+    }
+};
+
+//! Bezier curve of varying degrees.
+template<class T, size_t N, size_t...Ns>
+class BezierVariant
+{
+public:
+    using vertex_type = T;
+
+private:
+    VarUnion<Bezier<T,N>,Bezier<T,Ns>...> m_unibez;
+    size_t m_actid;
+
+    template <size_t n>
+    using bezier_type = typename VarUnion<Bezier<T,N>,Bezier<T,Ns>...>::template elem_type<n>;
+
+public:
+    //! Constructor with tag.
+    template <size_t n, class...Args>
+    constexpr BezierVariant(std::integral_constant<size_t,n> tag, Args&&...args) noexcept
+        : m_actid(n), m_unibez(tag,std::forward<Args>(args)...) {}
+
+    //! Copy constructor.
+    constexpr BezierVariant(BezierVariant const&) noexcept = default;
+
+    //! Move constructor.
+    constexpr BezierVariant(BezierVariant &&) noexcept = default;
+
+    //! Assignment
+    template <size_t n>
+    constexpr void assign(std::integral_constant<size_t,n>, bezier_type<n> const& src) noexcept {
+        m_unibez.template get<n>() = src;
+        m_actid = n;
+    }
+
+    /*! \name Range access interface */
+    //@{
+    constexpr vertex_type* begin() noexcept {
+        return begin_impl(std::integral_constant<size_t,0>());
+    }
+
+    constexpr vertex_type* end() noexcept {
+        return end_impl(std::integral_constant<size_t,0>());;
+    }
+
+    constexpr vertex_type const* cbegin() noexcept {
+        return const_cast<BezierVariant*>(this)->begin();
+    }
+    constexpr vertex_type const* cend() noexcept {
+        return const_cast<BezierVariant*>(this)->end();
+    }
+    //@}
+
+    /*! \name Bezier interface */
+    //@{
+    //! Evaluate the point at a given parameter.
+    constexpr vertex_type eval(double t) const noexcept {
+        return eval_impl(std::integral_constant<size_t,0>(), t);
+    }
+
+    //! Check a given condition on all the vertices.
+    template <class F>
+    constexpr bool allSatisfy(F&& f) const noexcept {
+        return allSatisfy_impl(std::integral_constant<size_t,0>(), std::forward<F>(f));
+    }
+
+    //! Divide the Bezier curve.
+    constexpr auto divide(double t = 0.5, double eps = 0.0) const noexcept
+        -> std::pair<BezierVariant,BezierVariant>
+    {
+        return divide_impl(std::integral_constant<size_t,0>(), t, eps);
+    }
+
+    //! Clip the Bezier curve.
+    constexpr BezierVariant clip(double t0, double t1) const noexcept {
+        return clip_impl(std::integral_constant<size_t,0>(), t0, t1);
+    }
+
+    //! Conversion of vertices.
+    template <class F>
+    constexpr auto convert(F&& f) const
+        -> BezierVariant<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),N,Ns...>
+    {
+        return convert_impl(std::integral_constant<size_t,0>(), std::forward<F>(f));
+    }
+    //@}
+
+protected:
+    /*! \name Implementations */
+    //@{
+    template <size_t n>
+    constexpr vertex_type* begin_impl(std::integral_constant<size_t,n>) noexcept
+    {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n)
+            return (m_unibez.template get<n>()).begin();
+
+        return begin_impl(std::integral_constant<size_t,n+1>());
+    }
+
+    template <size_t n>
+    constexpr vertex_type* end_impl(std::integral_constant<size_t,n>) noexcept
+    {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n)
+            return (m_unibez.template get<n>()).end();
+
+        return end_impl(std::integral_constant<size_t,n+1>());
+    }
+
+    template <size_t n>
+    constexpr vertex_type eval_impl(std::integral_constant<size_t,n>, double t) const noexcept {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n)
+            return (m_unibez.template get<n>()).eval(t);
+
+        return eval_impl(std::integral_constant<size_t,n+1>(), t);
+    }
+
+    template <size_t n, class F>
+    constexpr bool allSatisfy_impl(std::integral_constant<size_t,n>, F&& f) const noexcept {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n)
+            return (m_unibez.template get<n>()).allSatisfy(std::forward<F>(f));
+
+        return allSatisfy_impl(std::integral_constant<size_t,n+1>(),
+                               std::forward<F>(f) );
+    }
+
+    template <size_t n>
+    constexpr auto divide_impl(std::integral_constant<size_t,0>(), double t, double eps) const noexcept
+        -> std::pair<BezierVariant,BezierVariant>
+    {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n) {
+            auto result = (m_unibez.template get<n>()).divide(t, eps);
+            return std::make_pair(
+                BezierVariant(std::integral_constant<size_t,n>(),
+                              result.first ),
+                BezierVariant(std::integral_constant<size_t,n>(),
+                              result.second )
+                );
+        }
+
+        return divide_impl(std::integral_constant<size_t,n+1>(), t, eps);
+    }
+
+    template <size_t n>
+    constexpr auto clip_impl(std::integral_constant<size_t,n>, double t0, double t1) const noexcept
+        -> BezierVariant
+    {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n) {
+            return BezierVariant(
+                std::integral_constant<size_t,n>(),
+                (m_unibez.template get<n>()).clip(t0, t1) );
+        }
+
+        return clip_impl(std::integral_constant<size_t,n+1>(), t0, t1);
+    }
+
+    template <size_t n, class F>
+    constexpr auto convert_impl(std::integral_constant<size_t,n>, F&& f) const
+        -> BezierVariant<decltype(std::declval<F&&>()(std::declval<vertex_type&&>())),N,Ns...>
+    {
+        static_assert(n<sizeof...(Ns)+1, "Index out of range.");
+        if (m_actid == n)
+            return (m_unibez.template get<n>()).convert(std::forward<F>(f));
+
+        return convert_impl(std::integral_constant<size_t,n+1>(),
+                            std::forward<F>(f) );
     }
 };

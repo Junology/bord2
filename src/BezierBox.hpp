@@ -10,17 +10,32 @@
 
 #include <vector>
 
+#include <Eigen/Dense>
+
 #include "math/Bezier.hpp"
+#include "math/Bezier2D.hpp"
 #include "PathScheme.hpp"
+#include "ProjSpatialScheme.hpp"
 
 template <class T>
-class BezierBox : public PathFigure<T>
+class BezierBox
+    : public ProjSpatialScheme<T>
 {
-public:
-    using BezierT = Bezier<T,3>;
+    static_assert(std::is_base_of<T, PathScheme<Eigen::Vector2d>>::value, "The base scheme must be derived from PathScheme<Eigen::Vector2d>.");
 
+public:
+    using typename PathScheme<Eigen::Vector3d>::PathElement;
+
+    struct BezierElement {
+        bord2::PathElemType type;
+        union {
+            Bezier<Eigen::Vector3d,1> line;
+            Bezier<Eigen::Vector3d,2> qbez;
+            Bezier<Eigen::Vector2d,3> cbez;
+        };
+    };
 private:
-    std::vector<BezierT> m_bezv;
+    std::vector<PathElement> m_bezv;
 
 public:
     void append(BezierT && bez) {

@@ -37,15 +37,6 @@ struct Rect {
     }
 };
 
-struct FatLine {
-    AffHypPlane<2> line;
-    double min_height, max_height;
-    bool contains(Eigen::Vector2d const& pt) const noexcept {
-        double height = line.height(pt);
-        return min_height <= height && height <= max_height;
-    }
-};
-
 //! Closed interval
 struct Interval{
     double beg, end;
@@ -68,9 +59,33 @@ struct Interval{
         return Interval{beg + inner.beg*(end-beg), beg + inner.end*(end-beg)};
     }
 
+    template <class Container>
+    bool isAcross(Container const& container) const noexcept {
+        static_assert(
+            std::is_convertible<std::remove_cv_t<std::remove_reference_t<decltype(*(container.begin()))>>,double>::value,
+            "The argument type must " );
+        bool flag_above = true;
+        bool flag_below = true;
+        for(double val : container) {
+            flag_below = flag_below && val < beg;
+            flag_above = flag_above && val > end;
+        }
+
+        return !flag_below && !flag_above;
+    }
+
     // Lexicographical ordering
     constexpr bool operator<(Interval const& rhs) const noexcept {
         return beg<rhs.beg || (beg==rhs.beg && end<rhs.end);
+    }
+};
+
+struct FatLine {
+    AffHypPlane<2> line;
+    Interval hrange;
+
+    bool contains(Eigen::Vector2d const& pt) const noexcept {
+        return hrange.contains(line.height(pt));
     }
 };
 
@@ -136,23 +151,23 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
     }
 
     bord2::FatLine getFatLine() const noexcept {
-        vertex_type tangent = BaseType::m_pts[deg]-BaseType::m_pts[0];
+        vertex_type tangent = BaseType::target() - BaseType::source();
         vertex_type normal
             = tangent.isZero()
             ? Eigen::Vector2d(0.0, 1.0)
             : Eigen::Vector2d(-tangent(1), tangent(0));
         normal.normalize();
         bord2::FatLine result = {
-            AffHypPlane<2>(normal, BaseType::m_pts[0]),
-            0.0, 0.0
+            AffHypPlane<2>(normal, BaseType::source()),
+            bord2::Interval{0.0, 0.0}
         };
 
-        for(size_t i = 1; i < deg; ++i) {
-            double height = result.line.height(BaseType::m_pts[i]);
-            if (height < result.min_height)
-                result.min_height = height;
-            if (height > result.max_height)
-                result.max_height = height;
+        for(auto itr = BaseType::begin()+1; itr+1 < BaseType::end(); ++itr) {
+            double height = result.line.height(*itr);
+            if (height < result.hrange.beg)
+                result.hrange.beg = height;
+            if (height > result.hrange.end)
+                result.hrange.end = height;
         }
         return result;
     }
@@ -162,7 +177,7 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
     //!   >> bool T::contains(Eigen::Vector2d const&);
     template <class T>
     bool ctrlLiesIn(T const& shape) const noexcept(T::contains(std::declval<T*>(), std::declval<Eigen::Vector2d const&>())) {
-        for(auto pt : BaseType::m_pts) {
+        for(auto& pt : *this) {
             if (shape.contains(pt))
                 return true;
         }
@@ -191,12 +206,6 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
         decltype(bez) bez_aux;
         decltype(result) result_aux;
 
-        // Check not if all the control points of a Bezier function lie above or below of the fatline.
-        auto ctrlOutOfFL = [&fatline](Bezier<double,deg> const& b) {
-            return b.allSatisfy([&fatline](double t) { return t < fatline.min_height; })
-                || b.allSatisfy([&fatline](double t) { return t > fatline.max_height; });
-        };
-
         // Begin iteration: width-first binary search.
         for(size_t n = 0; n < num; ++n) {
             if (result.empty())
@@ -213,11 +222,11 @@ struct Bezier2D : public Bezier<Eigen::Vector2d,deg>
 
                 // Check if the convex hulls of the control points of the divided Bezier curves intersects with the fatline.
                 // If so, push them onto the stack
-                if (!ctrlOutOfFL(bezdiv.first)) {
+                if (fatline.hrange.isAcross(bezdiv.first)) {
                     bez_aux.push_back(bezdiv.first);
                     result_aux.push_back(result[i].first(eps));
                 }
-                if (!ctrlOutOfFL(bezdiv.second)) {
+                if (fatline.hrange.isAcross(bezdiv.second)) {
                     bez_aux.push_back(bezdiv.second);
                     result_aux.push_back(result[i].latter(eps));
                 }
@@ -421,6 +430,7 @@ auto intersect(Bezier2D<M> const& lhs, Bezier2D<N> const& rhs) noexcept
         // */
     }
 
+    // Write the result.
     std::vector<std::pair<double,double>> result{};
     for(auto& ipair : interval_map) {
         auto& intervalL = ipair.first;
