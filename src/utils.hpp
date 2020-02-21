@@ -23,6 +23,21 @@ namespace bord2 {
 template <class...>
 using void_t = void;
 
+template <class T, std::enable_if_t<std::is_default_constructible<T>::value,int> = 0>
+constexpr T absurd [[gnu::cold]]() noexcept {
+    /* NOT REACHED */
+    return T{};
+}
+
+template <class T, std::enable_if_t<!std::is_default_constructible<T>::value,int> = 0>
+constexpr T absurd [[gnu::cold]]() noexcept {
+    /* NOT REACHED */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wnull-dereference"
+    return *static_cast<T*>(nullptr);
+#pragma GCC diagnostic pop
+}
+
 constexpr bool allTrue(std::initializer_list<bool>&& flags) noexcept {
     for(auto& flag : flags)
         if (!flag) return false;

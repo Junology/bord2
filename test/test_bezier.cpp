@@ -31,6 +31,22 @@ TEST(Bezier, LinearDiv)
         << bezdiv.second.get<1>() << std::endl;
 }
 
+TEST(Bezier, LinearClip)
+{
+    Bezier<Eigen::Vector2d,1> bez(
+        Eigen::Vector2d(0.0, 0.0),
+        Eigen::Vector2d(1.0, 2.0) );
+
+    constexpr size_t smp = 10;
+    constexpr double dur = 1.0/smp;
+    for(size_t i = 0; i < smp; ++i) {
+        for(size_t j = i+1; j < smp; ++j) {
+            auto bezclip = bez.clip(i*dur, j*dur);
+            EXPECT_LT( (bezclip.get<0>()-bez.eval(i*dur)).norm(), 10e-10);
+            EXPECT_LT( (bezclip.get<1>()-bez.eval(j*dur)).norm(), 10e-10);        }
+    }
+}
+
 TEST(Bezier, Quad2D)
 {
     using VT = Eigen::Vector2d;
@@ -69,6 +85,60 @@ TEST(Bezier, QuadDiv)
             << "bez(t/2+0.5)=" << bez.eval(0.5+t/2.0).adjoint() << std::endl
             << "bezdiv2(t)  =" << bezdiv.second.eval(t).adjoint() << std::endl;
     }
+}
+
+TEST(Bezier, QuadClip)
+{
+    Bezier<Eigen::Vector2d,2> bez(
+        Eigen::Vector2d(2.0, 0.0),
+        Eigen::Vector2d(0.0, 0.0),
+        Eigen::Vector2d(0.0, 2.0));
+
+    constexpr size_t smp = 10;
+    constexpr double dur = 1.0/smp;
+    for(size_t i = 0; i < smp; ++i) {
+        for(size_t j = i+1; j < smp; ++j) {
+            auto bezclip = bez.clip(i*dur, j*dur);
+            EXPECT_LT( (bezclip.get<0>()-bez.eval(i*dur)).norm(), 10e-10);
+            EXPECT_LT( (bezclip.eval(0.5)-bez.eval(i*dur/2 + j*dur/2)).norm(), 10e-10);
+            EXPECT_LT( (bezclip.get<2>()-bez.eval(j*dur)).norm(), 10e-10);        }
+    }
+}
+
+TEST(Bezier, Range)
+{
+    Bezier<Eigen::Vector2d,3> bez = {
+        Eigen::Vector2d(0.0, 0.0),
+        Eigen::Vector2d(1.0, 0.0),
+        Eigen::Vector2d(0.0, 1.0),
+        Eigen::Vector2d(1.0, 1.0)
+    };
+
+    std::vector<Eigen::Vector2d> vec;
+
+    for(auto& pt : bez) {
+        vec.push_back(pt);
+    }
+
+    ASSERT_EQ(vec.size(), 4);
+    EXPECT_EQ(vec[0], Eigen::Vector2d(0.0, 0.0));
+    EXPECT_EQ(vec[1], Eigen::Vector2d(1.0, 0.0));
+    EXPECT_EQ(vec[2], Eigen::Vector2d(0.0, 1.0));
+    EXPECT_EQ(vec[3], Eigen::Vector2d(1.0, 1.0));
+
+    Bezier<Eigen::Vector2d, 3> const cbez = bez;
+
+    vec.clear();
+
+    for(auto& pt : cbez) {
+        vec.push_back(pt);
+    }
+
+    ASSERT_EQ(vec.size(), 4);
+    EXPECT_EQ(vec[0], Eigen::Vector2d(0.0, 0.0));
+    EXPECT_EQ(vec[1], Eigen::Vector2d(1.0, 0.0));
+    EXPECT_EQ(vec[2], Eigen::Vector2d(0.0, 1.0));
+    EXPECT_EQ(vec[3], Eigen::Vector2d(1.0, 1.0));
 }
 
 // Test class
@@ -113,6 +183,11 @@ bool operator==(TestVec2 const& lhs, TestVec2 const& rhs)
     return (lhs-rhs).norm() <= (lhs.norm() + rhs.norm())*10e-10;
 }
 
+bool operator!=(TestVec2 const& lhs, TestVec2 const& rhs)
+{
+    return !(lhs==rhs);
+}
+
 TEST(Bezier, CubicWithMyVector)
 {
     constexpr auto bez = Bezier<TestVec2,3>(
@@ -126,11 +201,20 @@ TEST(Bezier, CubicWithMyVector)
     EXPECT_EQ(v, vshouldbe);
 
     constexpr auto bezdiv = bez.divide();
-    for(double t = 0.0; t < 1.0; t += 0.1) {
+    constexpr size_t smp = 10;
+    constexpr double dur = 1.0/smp;
+    for(size_t i = 0; i < smp; ++i) {
+        double t = i*dur;
         EXPECT_EQ(bezdiv.first.eval(t), bez.eval(t/2.0))
             << "different at " << t << std::endl;
         EXPECT_EQ(bezdiv.second.eval(t), bez.eval(0.5+t/2.0))
             << "different at " << t << std::endl;
+    }
+
+    constexpr auto bezclip = bez.clip(0.3, 0.7);
+    for(size_t i = 0; i < smp; ++i) {
+        double t = i*dur;
+        EXPECT_EQ(bezclip.eval(t), bez.eval(0.3+t*0.4));
     }
 }
 
@@ -153,78 +237,113 @@ TEST(Bezier, ArbitraryDivision)
     }
 }
 
-TEST(Bezier2D, HullFaceNone)
+TEST(Bezier, Convert)
 {
-    // Nothing will happen for Bezier curve of degree 0 (i.e. just a point).
-    auto hull1 = Bezier2D<0>(Eigen::Vector2d(0.0, 0.0)).getConvexHull();
-    EXPECT_TRUE(hull1.empty());
+    struct Rotate90 {
+        constexpr TestVec2 operator()(TestVec2 src) const noexcept {
+            return TestVec2{-src.arr[1], src.arr[0]};
+        }
+    };
 
-    // Nothing will happen since there the convex hull is 0-dimensional.
-    auto hull2 = Bezier2D<2>(
-        Eigen::Vector2d(0.0, 0.0),
-        Eigen::Vector2d(0.0, 0.0),
-        Eigen::Vector2d(0.0, 0.0)
-        ).getConvexHull();
-    EXPECT_TRUE(hull2.empty());
-}
-
-TEST(Bezier2D, HullFaceLinear)
-{
-    // Test for lines
+    constexpr auto bez = Bezier<TestVec2,3>(
+        TestVec2{0.0, 0.0},
+        TestVec2{0.0, 1.0},
+        TestVec2{1.0, 1.0},
+        TestVec2{1.0, 0.0} );
+    constexpr auto bez90 = bez.convert(Rotate90());
     constexpr size_t smp = 10;
+    constexpr double dur = 1.0/smp;
     for(size_t i = 0; i < smp; ++i) {
-        double t = (2*i*M_PI)/smp;
-        Eigen::Matrix2d rmat;
-        rmat << cos(t), -sin(t), sin(t), cos(t);
-        Eigen::Vector2d p0 = rmat*Eigen::Vector2d(-0.5, 0.0);
-        Eigen::Vector2d p1 = rmat*Eigen::Vector2d(1.0, 0.0);
-        auto bndpath = Bezier2D<1>(p0, p1).getConvexHull();
+        double t = i*dur;
+        auto pt = bez.eval(t);
+        auto pt90 = bez90.eval(t);
+        auto pt90shouldbe = TestVec2{-pt.arr[1], pt.arr[0]};
+        EXPECT_EQ(pt90, pt90shouldbe);
+        if(i > 0)
+            EXPECT_NE(pt90, pt);
+    }
+};
 
-        ASSERT_GE(bndpath.size(), 2)
-            << "i=" << i << ", t=" << t << std::endl;
-        auto itr = std::find(bndpath.begin(), bndpath.end(), p0);
-        EXPECT_NE(itr, bndpath.end())
-            << "p0 not found: " << p0.adjoint() << std::endl;
-        itr = std::find(bndpath.begin(), bndpath.end(), p1);
-        EXPECT_NE(itr, bndpath.end())
-            << "p1 not found: " << p1.adjoint() << std::endl;
-        if(bndpath.size() > 2) {
-            ADD_FAILURE()
-                << "i=" << i << ", t=" << t << std::endl
-                << "p0= " << p0.adjoint() << std::endl
-                << "p1= " << p1.adjoint() << std::endl
-                << bndpath[2].adjoint() << std::endl;
+TEST(Bezier, Variant)
+{
+    constexpr Bezier<TestVec2,2> bez2(
+        TestVec2{0.0, 0.0},
+        TestVec2{1.0, 0.0},
+        TestVec2{1.0, 1.0});
+    constexpr BezierVariant<TestVec2,0,1,2,3> bezvar(std::integral_constant<size_t,2>(), bez2);
+
+    std::vector<TestVec2> vs;
+    for(auto pt : bezvar) {
+        vs.push_back(pt);
+    }
+    ASSERT_EQ(vs.size(), 3);
+    EXPECT_EQ(vs[0], (TestVec2{0.0, 0.0}));
+    EXPECT_EQ(vs[1], (TestVec2{1.0, 0.0}));
+    EXPECT_EQ(vs[2], (TestVec2{1.0, 1.0}));
+
+    constexpr size_t smp = 10;
+    constexpr double dur = 1.0/smp;
+
+    // Evaluation test
+    for(size_t i = 0; i <= smp; ++i) {
+        double t = i*dur;
+        EXPECT_EQ(bez2.eval(t),
+                  bezvar.eval(t));
+    }
+
+    // Division test
+    constexpr auto bez2div = bez2.divide();
+    constexpr auto bezvardiv = bezvar.divide();
+    for(size_t i = 0; i <= smp; ++i) {
+        double t = i*dur;
+        EXPECT_EQ(bez2div.first.eval(t),
+                  bezvardiv.first.eval(t));
+        EXPECT_EQ(bez2div.second.eval(t),
+                  bezvardiv.second.eval(t));
+    }
+
+    // Clip test
+    for(size_t i = 0; i < smp; ++i) {
+        for(size_t j = i+1; j <= smp; ++j) {
+            auto bez2clip = bez2.clip(i*dur, j*dur);
+            auto bezvarclip = bezvar.clip(i*dur, j*dur);
+            for(size_t k = 0; k <= smp; ++k) {
+                double t = k*dur;
+                EXPECT_EQ(bez2clip.eval(t), bezvarclip.eval(t));
+            }
         }
     }
-}
 
-TEST(Bezier2D, HullFaceHigher)
-{
-    // Test for a higher degree.
-    auto bez2d = Bezier2D<8>(
-        Eigen::Vector2d(0.0, 0.0), // 0
-        Eigen::Vector2d(1.0, 0.5), // 1
-        Eigen::Vector2d(2.0, 0.0), // 2
-        Eigen::Vector2d(1.5, 1.0), // 3
-        Eigen::Vector2d(2.0, 2.0), // 4
-        Eigen::Vector2d(1.0, -1.0),// 5
-        Eigen::Vector2d(0.0, 2.0), // 6
-        Eigen::Vector2d(0.5, 1.0), // 7
-        Eigen::Vector2d(2.0, 0.0)  // 8
-        );
-    auto bndpath = bez2d.getConvexHull();
+    // Convert test
+    struct Rotate90 {
+        constexpr TestVec2 operator()(TestVec2 src) const noexcept {
+            return TestVec2{-src.arr[1], src.arr[0]};
+        }
+    };
+    constexpr auto bez2_90 = bez2.convert(Rotate90());
+    constexpr auto bezvar_90 = bezvar.convert(Rotate90());
+    for(size_t i = 0; i <= smp; ++i) {
+        double t = i*dur;
+        EXPECT_EQ(bez2_90.eval(t), bezvar_90.eval(t));
+    }
 
-    ASSERT_EQ(bndpath.size(), 5);
-    EXPECT_EQ(bndpath[0], bez2d.get<5>())
-        << bndpath[0].adjoint() << std::endl;
-    EXPECT_EQ(bndpath[1], bez2d.get<2>())
-        << bndpath[1].adjoint() << std::endl;
-    EXPECT_EQ(bndpath[2], bez2d.get<4>())
-        << bndpath[2].adjoint() << std::endl;
-    EXPECT_EQ(bndpath[3], bez2d.get<6>())
-        << bndpath[3].adjoint() << std::endl;
-    EXPECT_EQ(bndpath[4], bez2d.get<0>())
-        << bndpath[4].adjoint() << std::endl;
+    // Assignment
+    constexpr Bezier<TestVec2,3> bez3(
+        TestVec2{0.0, 0.0},
+        TestVec2{1.0, 0.0},
+        TestVec2{0.0, 1.0},
+        TestVec2{1.0, 1.0});
+    auto bezvar3 = bezvar;
+    bezvar3.assign(std::integral_constant<size_t,3>(), bez3);
+    vs.clear();
+    for(auto pt : bezvar3) {
+        vs.push_back(pt);
+    }
+    ASSERT_EQ(vs.size(), 4);
+    EXPECT_EQ(vs[0], (TestVec2{0.0, 0.0}));
+    EXPECT_EQ(vs[1], (TestVec2{1.0, 0.0}));
+    EXPECT_EQ(vs[2], (TestVec2{0.0, 1.0}));
+    EXPECT_EQ(vs[3], (TestVec2{1.0, 1.0}));
 }
 
 TEST(Bezier2D, IntersectionLinLin)
@@ -235,10 +354,10 @@ TEST(Bezier2D, IntersectionLinLin)
         Eigen::Matrix2d mat;
         mat << cos(t), -sin(t), sin(t), cos(t);
 
-        auto bez1 = Bezier2D<1>(
+        auto bez1 = Bezier2D<Bezier<Eigen::Vector2d,1>>(
             mat*Eigen::Vector2d(-1.0, 0.0),
             mat*Eigen::Vector2d(1.0, 0.0) );
-        auto bez2 = Bezier2D<1>(
+        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,1>>(
             mat*Eigen::Vector2d(0.8, 0.6),
             mat*Eigen::Vector2d(0.8, -0.6) );
 
@@ -265,11 +384,48 @@ TEST(Bezier2D, IntersectionQQ)
         Eigen::Matrix2d mat;
         mat << cos(t), -sin(t), sin(t), cos(t);
 
-        auto bez1 = Bezier2D<2>(
+        auto bez1 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
             mat*Eigen::Vector2d(-0.5, -1.0),
             mat*Eigen::Vector2d(1.0, 0.0),
             mat*Eigen::Vector2d(-0.5, 1.0) );
-        auto bez2 = Bezier2D<2>(
+        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
+            mat*Eigen::Vector2d(0.5, -1.0),
+            mat*Eigen::Vector2d(-1.0, 0.0),
+            mat*Eigen::Vector2d(0.5, 1.0) );
+
+        auto params = intersect(bez1, bez2);
+        ASSERT_GE(params.size(), 2) << "t=" << t;
+        EXPECT_LT(
+            std::abs((mat.adjoint()*bez1.eval(params[0].first))(0)),
+            10e-10);
+        EXPECT_LT(
+            std::abs((mat.adjoint()*bez2.eval(params[1].first))(0)),
+            10e-10);
+        if (params.size() > 2) {
+            ADD_FAILURE()
+                << "i=" << i << ", t=" << t << std::endl
+                << "(" << params[0].first << ", " << params[0].second << ")"
+                << std::endl
+                << "(" << params[1].first << ", " << params[1].second << ")"
+                << std::endl;
+        }
+    }
+}
+
+TEST(Bezier2D, IntersectionVarQL)
+{
+    constexpr size_t max_smp = 20;
+    for(size_t i = 0; i < max_smp; ++i) {
+        double t = 2*i*M_PI/max_smp;
+        Eigen::Matrix2d mat;
+        mat << cos(t), -sin(t), sin(t), cos(t);
+
+        auto bez1 = Bezier2D<BezierVariant<Eigen::Vector2d,0,1,2>>(
+            std::integral_constant<size_t,2>(),
+            mat*Eigen::Vector2d(-0.5, -1.0),
+            mat*Eigen::Vector2d(1.0, 0.0),
+            mat*Eigen::Vector2d(-0.5, 1.0) );
+        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
             mat*Eigen::Vector2d(0.5, -1.0),
             mat*Eigen::Vector2d(-1.0, 0.0),
             mat*Eigen::Vector2d(0.5, 1.0) );
