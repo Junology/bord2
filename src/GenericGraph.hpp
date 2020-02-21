@@ -20,7 +20,7 @@
 
 /*!
  * \addgroup Type traits
- * @(
+ * \@{
  */
 template <class T, class K, class=void>
 struct has_at : public std::false_type {
@@ -34,7 +34,7 @@ struct has_at<T,K, bord2::void_t<decltype(std::declval<T>().at(std::declval<K>()
     using type = decltype(std::declval<T>().at(std::declval<K>()));
     static type apply(T& obj, K key){ return obj.at(key); }
 };
-/*! @) */
+/*! \@} */
 
 //! Key manager class
 template <class K>

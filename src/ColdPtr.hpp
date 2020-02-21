@@ -35,24 +35,18 @@ private:
 protected:
     constexpr ColdPtr(pointer ptr) noexcept : m_ptr(ptr) {}
 
-    /*!
-     * \addgroup Copying is allowed only in derived classes.
-     * @(
-     */
-    /*! @) */
-
     //! Get the raw pointer.
     constexpr pointer get() const noexcept { return m_ptr; }
 
     /*!
-     * \addgroup De-referencing operators.
-     * @(
+     * \name De-referencing operators.
      */
+    //@{
     //constexpr element_type& operator*() noexcept { return *m_ptr; }
     constexpr element_type & operator*() const noexcept { return *m_ptr; }
     constexpr pointer operator->() const noexcept { return m_ptr; }
     //constexpr const_pointer operator->() const noexcept { return m_ptr; }
-    /*! @) */
+    //@}
 
     //! Direct comparison with a raw pointer.
     constexpr bool operator==(const_pointer ptr) const noexcept { return m_ptr == ptr; }
@@ -76,9 +70,9 @@ public:
     constexpr void invalidate() noexcept { m_ptr = nullptr; }
 
     /*!
-     * \addgroup Comparison and validity checkers
-     * @(
+     * \name Comparison and validity checkers
      */
+    //@{
     constexpr bool operator!() const noexcept { return !m_ptr; }
     constexpr operator bool() { return m_ptr; }
     constexpr bool operator==(ColdPtr<T> const& index) const noexcept {
@@ -87,5 +81,5 @@ public:
     constexpr bool operator!=(ColdPtr<T> const& index) const noexcept {
         return m_ptr != index.m_ptr;
     }
-    /*! @) */
+    //@}
 };
