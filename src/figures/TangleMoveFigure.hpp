@@ -20,7 +20,7 @@
 #include "PlTangFigure.hpp"
 #include "PathFigure3D.hpp"
 
-// #include <iostream> // Debug
+#include <iostream> // Debug
 
 template <class T>
 class TangleMoveFigure;
@@ -241,7 +241,7 @@ protected:
         double denom = m_critV.adjoint() * (v0 - 2.0*v1 + v2);
         double t = numer / denom;
 
-        return (0.0 < t && t <= 1.0)
+        return (0.0 <= t && t <= 1.0)
                       ? std::make_pair(
                           true,
                           (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2) )
@@ -375,11 +375,19 @@ protected:
         while(graph.inhabited()) {
             auto comp = graph.trimComponent(graph.minkey());
             auto mayend = comp.findEnd();
+            auto maynode = comp.findKey(
+                    [&isInt](std::pair<size_t, Eigen::Vector3d> const &v) -> bool{
+                        return isInt(v.second(2));
+                    } );
             m_paths.emplace_back();
 
             double prevheight = 0.0;
-            comp.trackPath(
-                mayend.first ? mayend.second : graph.minkey(),
+            auto key = mayend.first
+                ? mayend.second
+                : (maynode ? maynode->first : comp.minkey());
+
+            auto flag = comp.trackPathCyc(
+                key,
                 [&](std::pair<size_t, Eigen::Vector3d> const& v) {
                     if(m_paths.empty()) {
                         m_paths.back().push_back({
@@ -393,6 +401,10 @@ protected:
                     }
                     prevheight = normh(v.second(2));
                 });
+            //* Debug
+            std::cout << __FILE__":" << __LINE__ << std::endl;
+            std::cout << std::boolalpha << flag << std::endl;
+            // */
         }
     }
 };

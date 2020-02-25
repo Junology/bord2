@@ -391,7 +391,7 @@ public:
     //! \param f A function-like object, the same as the one in the function \sa forEachVertex.
     //! \return The first component indicates whether the path may continue to vertices which have already been passed through. In this case, the second component is the key to one of "possible-next" vertices.
     template <class F>
-    std::pair<bool,key_type> trackPath(key_type key, F&& f) {
+    std::pair<bool,key_type> trackPath(key_type key, F const& f) {
         // Check if key is valid.
         if (!isVertex(key))
             return {false, key};
@@ -438,6 +438,19 @@ public:
         }
 
         return {true, key};
+    }
+
+    //! Iterate a given function to which vertices along a maximal simple (i.e. loop-less) path are passed.
+    //! This version visits a vertex twice if it is a base-point of a loop.
+    //! \param key The key associated to a vertex where the path begins.
+    //! \param f A function-like object, the same as the one in the function \sa forEachVertex.
+    //! \return Whether a loop was found or not.
+    template <class F>
+    bool trackPathCyc(key_type key, F const& f) {
+        auto maynext = trackPath(key, f);
+        if (maynext.first)
+            f(*m_vertices.find(maynext.second));
+        return maynext.first;
     }
 
 protected:
