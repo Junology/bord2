@@ -18,7 +18,10 @@
 #include "AffHypPlane.hpp"
 #include "misc.hpp"
 
-#include <iostream> // Debug
+//* Debug
+#include <iostream>
+#include <iomanip>
+// */
 
 namespace bord2 {
 //! Closed interval
@@ -33,9 +36,13 @@ struct Interval{
     constexpr Interval latter(double eps = 0.0) const noexcept {
         return {beg/2 + end/2 - eps, end};
     }
-    constexpr bool isDividable() const noexcept {
+    constexpr bool isCollapsed() const noexcept {
         auto mid = beg/2 + end/2;
-        return beg < mid && mid < end;
+        return beg == mid || mid == end;
+    }
+
+    constexpr bool isDisjoint(Interval const& other) const noexcept {
+        return beg > other.end || end < other.beg;
     }
 
     // Composition in the sense of that in the little 1-cubes operad.
@@ -64,6 +71,22 @@ struct Interval{
     }
 };
 
+struct Rectangle {
+    double left, right, top, bottom;
+    constexpr bool isDisjoint(Rectangle const& other) const noexcept {
+        return left > other.right
+            || right < other.left
+            || top < other.bottom
+            || bottom > other.top;
+    }
+    constexpr bool isCollapsed() const noexcept {
+        double xmid = left/2 + right/2;
+        double ymid = top/2 + bottom/2;
+        return (xmid == left || xmid == right)
+            && (ymid == top || ymid == bottom);
+    }
+};
+
 struct FatLine {
     AffHypPlane<2> line;
     Interval hrange;
@@ -74,118 +97,156 @@ struct FatLine {
 };
 }
 
-template <class T>
-struct Bezier2D : public T
+/*!
+ * Compute the interval spanned by the control points of a given Bernstein functions (i.e. Bezier curves in the one-dimensional real line).
+ */
+template <class BezierT>
+constexpr auto getBand(
+    BezierT const& bernfun,
+    bord2::Interval const& domain = bord2::Interval{0.0, 1.0}
+    ) noexcept
+    -> bord2::Interval
 {
-    using BaseType = T;
-    using typename BaseType::vertex_type;
+    using vertex_type = std::remove_cv_t<std::remove_reference_t<typename BezierTraits<BezierT>::vertex_type>>;
+    static_assert(std::is_convertible<decltype(std::declval<vertex_type>() < std::declval<vertex_type>()), bool>::value,
+                  "The vertex type must be comparable with each other." );
 
-    // Delegate constructors
-    using T::T;
+    BezierT bern_clipped = bernfun.clip(domain.beg, domain.end);
 
-    //! Copy-Construction from base class
-    Bezier2D(T const& src) noexcept : T(src) {}
+    bord2::Interval result{ bern_clipped.source(), bern_clipped.source() };
 
-    //! Move-Construction from base class
-    Bezier2D(T &&src) noexcept : T(std::move(src)) {}
+    std::for_each(
+        bern_clipped.begin()+1, bern_clipped.end(),
+        [&result](vertex_type const& x) {
+            if (x < result.beg)
+                result.beg = x;
+            if (result.end < x)
+                result.end = x;
+        } );
 
-    bord2::FatLine getFatLine(bord2::Interval const& domain = bord2::Interval{0.0, 1.0}) const noexcept {
-        vertex_type src = BaseType::eval(domain.beg);
-        vertex_type tangent = BaseType::eval(domain.end) - src;
-        vertex_type normal
-            = tangent.isZero()
-            ? Eigen::Vector2d(0.0, 1.0)
-            : Eigen::Vector2d(-tangent(1), tangent(0));
-        normal.normalize();
-        bord2::FatLine result = {
-            AffHypPlane<2>(normal, src),
-            bord2::Interval{0.0, 0.0}
-        };
+    return result;
+}
 
-        auto hbezfun = BaseType::convert(
-            [&normal, &src](vertex_type const& v) -> double {
-                return normal.dot(v-src);
-            } ).clip(domain.beg, domain.end);
+/*!
+ * Compute a fatline spanned by the control points of a Bezier curve.
+ * \param bezsrc A Bezier curve spanning the fatline.
+ * \param domain A (closed) subinterval of the unit interval [0,1] where the Bezier curve restricts to.
+ */
+template <class BezierT>
+auto getFatLine(BezierT const& bezsrc,
+                bord2::Interval const& domain = bord2::Interval{0.0, 1.0}
+    ) noexcept
+    -> bord2::FatLine
+{
+    using vertex_type = typename BezierTraits<BezierT>::vertex_type;
 
-        for(double height : hbezfun) {
-            if (height < result.hrange.beg)
-                result.hrange.beg = height;
-            if (height > result.hrange.end)
-                result.hrange.end = height;
-        }
-        return result;
-    }
+    vertex_type src = bezsrc.eval(domain.beg);
+    vertex_type tangent = bezsrc.eval(domain.end) - src;
+    vertex_type normal
+        = tangent.isZero()
+        ? Eigen::Vector2d(0.0, 1.0)
+        : Eigen::Vector2d(-tangent(1), tangent(0));
 
-    //! Clip the domain of the Bezier curve by a fatline.
-    //! See the paper Nishita, Takita, Nakamae, "Hidden Curve Elimination of Trimmed Surfaces Using Bezier Clipping."
-    //! \param fatline The fatline clipping the Bezier curve.
-    //! \param num The number (or depth) of clipping.
-    //! \param domain A subinterval of [0,1] where the parameter runs.
-    //! \param eps The margin of each division.
-    //! \return A vector of subintervals of the domain where the curve possibly intersects with the fatline.
-    auto clipByFL(bord2::FatLine const& fatline, size_t num, bord2::Interval domain = {0.0, 1.0}, double eps = 0.0) const noexcept
-        -> std::vector<bord2::Interval>
-    {
-        // The list of Bezier functions (i.e. Bezier curves in the one-dimensional Euclidean plane) obtained by clipping the projection of the original Bezier curve.
-        using BezierFunction = decltype(std::declval<T>().convert(std::declval<double(vertex_type)>()));
-        std::vector<BezierFunction> bez = {
-            BaseType::convert(
-                [&fatline](vertex_type const& pt) -> double {
-                    return fatline.line.height(pt);
-                } ).clip(domain.beg, domain.end)
-        };
-        // The list of intervals obtained from the unit interval by the same clippings as bez.
-        std::vector<bord2::Interval> result = {domain};
+    return {
+        AffHypPlane<2>(normal, src),
+        getBand(bezsrc.convert(
+                    [&normal, &src](vertex_type const& v) -> double {
+                        return normal.dot(v-src);
+                    } ),
+                domain )
+    };
+}
 
-        // The procedure divides the interval into at most 2^num subintervals.
-        result.reserve(bord2::cipow(2,num));
+/*!
+ * Clip the domain of the Bezier curve by a fatline.
+ * See the paper Nishita, Takita, Nakamae, "Hidden Curve Elimination of Trimmed Surfaces Using Bezier Clipping."
+ * \param fatline The fatline clipping the Bezier curve.
+ * \param num The number (or depth) of clipping.
+ * \param domain A subinterval of [0,1] where the parameter runs.
+ * \param eps The margin of each division.
+ * \return A vector of subintervals of the domain where the curve possibly intersects with the fatline.
+ */
+template <class BezierT>
+auto clipByFL(BezierT const& bezsrc,
+              bord2::FatLine const& fatline,
+              size_t num,
+              bord2::Interval domain = {0.0, 1.0},
+              double eps = 0.0
+    ) noexcept
+    -> std::vector<bord2::Interval>
+{
+    // The type of control points.
+    using vertex_type = typename BezierTraits<BezierT>::vertex_type;
+    // The list of Bernstein functions (i.e. Bezier curves in the one-dimensional real line) obtained by clipping the projection of the original Bezier curve.
+    using BernFun
+        = typename BezierTraits<BezierT>::template converted_type<double>;
+    std::vector<BernFun> bez = {
+        bezsrc.convert(
+            [&fatline](vertex_type const& pt) -> double {
+                return fatline.line.height(pt);
+            } ).clip(domain.beg, domain.end)
+    };
+    // The list of intervals obtained from the unit interval by the same clippings as bez.
+    std::vector<bord2::Interval> result = {domain};
 
-        // Temporary variables.
-        decltype(bez) bez_aux;
-        decltype(result) result_aux;
+    // The procedure divides the interval into at most 2^num subintervals.
+    result.reserve(bord2::cipow(2,num));
 
-        // Begin iteration: width-first binary search.
-        for(size_t n = 0; n < num; ++n) {
-            if (result.empty())
-                return {};
+    // Temporary variables.
+    decltype(bez) bez_aux;
+    decltype(result) result_aux;
 
-            // Clear the temporary buffers.
-            bez_aux.clear();
-            result_aux.clear();
+    // Begin iteration: width-first binary search.
+    for(size_t n = 0; n < num; ++n) {
+        if (result.empty())
+            return {};
 
-            // Traverse all clipped Bezier function.
-            for(size_t i = 0; i < bez.size(); ++i) {
-                // Divide the curve and the interval, and puth onto the stack
-                auto bezdiv = bez[i].divide(0.5, eps);
+        // Clear the temporary buffers.
+        bez_aux.clear();
+        result_aux.clear();
 
-                // Check if the convex hulls of the control points of the divided Bezier curves intersects with the fatline.
-                // If so, push them onto the stack
-                if (fatline.hrange.isAcross(bezdiv.first)) {
-                    bez_aux.push_back(bezdiv.first);
-                    result_aux.push_back(result[i].first(eps));
-                }
-                if (fatline.hrange.isAcross(bezdiv.second)) {
-                    bez_aux.push_back(bezdiv.second);
-                    result_aux.push_back(result[i].latter(eps));
-                }
+        // Traverse all clipped Bezier function.
+        for(size_t i = 0; i < bez.size(); ++i) {
+            // Divide the curve and the interval, and puth onto the stack
+            auto bezdiv = bez[i].divide(0.5, eps);
+
+            // Check if the convex hulls of the control points of the divided Bezier curves intersects with the fatline.
+            // If so, push them onto the stack
+            if (fatline.hrange.isAcross(bezdiv.first)) {
+                bez_aux.push_back(bezdiv.first);
+                result_aux.push_back(result[i].first(eps));
             }
-
-            // Update the data
-            bez.swap(bez_aux);
-            result.swap(result_aux);
+            if (fatline.hrange.isAcross(bezdiv.second)) {
+                bez_aux.push_back(bezdiv.second);
+                result_aux.push_back(result[i].latter(eps));
+            }
         }
 
-        return result;
+        // Update the data
+        bez.swap(bez_aux);
+        result.swap(result_aux);
     }
-};
 
-//! Compute the intersections with another 2d bezier curve.
-//! We use iterated mutual Bezier clipping algorithm.
-//! \return The list of parameters where two bezier curves intersect. As for each element of the vector, the first component is the parameter for *this* class while the second is the one for *other*.
-template <class LHSBezier, class RHSBezier>
+    return result;
+}
+
+/*!
+ * Compute the intersections with another 2d bezier curve.
+ * We use iterated mutual Bezier clipping algorithm.
+ * \tparam max_steps The number of steps of Bezier clippings. 12 is recommended.
+ * \tparam clip_depth The depth of binary search in each Bezier clipping. 3 is recommended.
+ * \return The list of parameters where two bezier curves intersect. As for each element of the vector, the first component is the parameter for *lhs* while the second is the one for *rhs*.
+ * \post It is guaranteed that the returned vector is ordered so that the first components are non-decreasing (while no guarantee on the second).
+ * \warning Intersections close to the ends will be thrown away.
+ */
+template <size_t max_steps, size_t clip_depth, class LHSBezier, class RHSBezier>
 auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
     -> std::vector<std::pair<double,double>>
 {
+    // cf 2^30 = 1073741824 ~ 10^9
+    constexpr double smp_dur = bord2::cipow(0.5, (max_steps-1)*clip_depth);
+    constexpr double eps = bord2::cipow(0.5, max_steps*clip_depth + clip_depth);
+
     using typename bord2::Interval;
 
     std::map<Interval, std::vector<Interval>> interval_map{
@@ -194,11 +255,10 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
     };
     decltype(interval_map) interval_aux;
 
-    // cf 2^30 = 1073741824 ~ 10^9
-    constexpr size_t max_steps = 12;
-    constexpr size_t clip_depth = 3;
-    constexpr double smp_dur = bord2::cipow(0.5, max_steps-1);
-    constexpr double eps = bord2::cipow(0.5, max_steps*clip_depth);
+    auto lhs_xbern = lhs.convert([](Eigen::Vector2d const& v) { return v(0); });
+    auto lhs_ybern = lhs.convert([](Eigen::Vector2d const& v) { return v(1); });
+    auto rhs_xbern = rhs.convert([](Eigen::Vector2d const& v) { return v(0); });
+    auto rhs_ybern = rhs.convert([](Eigen::Vector2d const& v) { return v(1); });
 
     for(size_t i = 0; i < max_steps; ++i) {
         if (interval_map.empty())
@@ -206,23 +266,66 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
 
         interval_aux.clear();
         for(auto& ipair : interval_map) {
-            for(auto& intrvl : ipair.second) {
-                auto left_clips = lhs.clipByFL(
-                    rhs.getFatLine(intrvl),
-                    clip_depth, ipair.first, eps);
+            // Compute the enclosing rectangle of the LHS curve.
+            std::array<bord2::Interval,2> rectL = {
+                getBand(lhs_xbern, ipair.first),
+                getBand(lhs_ybern, ipair.first)
+            };
 
-                if(left_clips.empty())
+            // Intervals too close to the ends are ignored.
+            if(ipair.first.end < smp_dur || ipair.first.beg > 1.0 - smp_dur
+               || (rectL[0].isCollapsed() && rectL[1].isCollapsed()
+                   && (ipair.first.beg < smp_dur
+                       || ipair.first.end > 1.0 - smp_dur)))
+                continue;
+
+            for(auto& intrvl : ipair.second) {
+                // Compute the enclosing rectangle of the RHS curve.
+                std::array<bord2::Interval,2> rectR = {
+                    getBand(rhs_xbern, intrvl),
+                    getBand(rhs_ybern, intrvl)
+                };
+
+                // Intervals too close to the ends are ignored.
+                if(intrvl.end < smp_dur || intrvl.beg > 1.0 - smp_dur
+                   || (rectR[0].isCollapsed() && rectR[1].isCollapsed()
+                       && (intrvl.beg < smp_dur
+                           || intrvl.end > 1.0 - smp_dur)))
+                    continue;
+
+                // Skip if enclosing rectangles do not intersect.
+                if(rectL[0].isDisjoint(rectR[0])
+                   || rectL[1].isDisjoint(rectR[1]))
+                    continue;
+
+                // Clip the domain of the LHS Bezier curve.
+                // If the enclosing rectangle is collapsed, just keep the old one.
+                auto lhs_clips = rectL[0].isCollapsed() && rectL[1].isCollapsed()
+                    ? std::vector<bord2::Interval>{ipair.first}
+                    : clipByFL(
+                        lhs,
+                        getFatLine(rhs, intrvl),
+                        clip_depth, ipair.first, eps);
+
+                if(lhs_clips.empty())
                    continue;
 
-                for(auto& clipper : left_clips) {
+                for(auto& clipper : lhs_clips) {
                     auto itr = interval_aux.emplace(
                         clipper, std::vector<Interval>{});
-                    auto intvlR = rhs.clipByFL(
-                            lhs.getFatLine(clipper),
+                    // Clip the domain of the RHS Bezier curve.
+                    // If the enclosing rectangle is collapsed, just keep the old one.
+                    auto intvlR = rectR[0].isCollapsed() && rectR[1].isCollapsed()
+                        ? std::vector<bord2::Interval>{intrvl}
+                        : clipByFL(
+                            rhs,
+                            getFatLine(lhs, clipper),
                             clip_depth, intrvl, eps);
-                    itr.first->second.insert(
-                        std::end(itr.first->second),
-                        intvlR.begin(), intvlR.end() );
+
+                    std::copy(
+                        std::make_move_iterator(intvlR.begin()),
+                        std::make_move_iterator(intvlR.end()),
+                        std::back_inserter(itr.first->second) );
                 }
             }
         }
@@ -251,9 +354,13 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
             double t0 = intervalL.beg/2 + intervalL.end/2;
             double t1 = intervalR.beg/2 + intervalR.end/2;
 
+            // Ignore intersections that are too close to the ends
+            if(t0 < smp_dur || t0 > 1.0 - smp_dur
+               || t1 < smp_dur || t1 > 1.0 - smp_dur)
+                continue;
+
             auto itr = std::find_if(
-                result.begin(),
-                result.end(),
+                result.begin(), result.end(),
                 [&t0, &t1](std::pair<double,double> const& params) -> bool{
                     return std::abs(params.first -t0) <= smp_dur + 2*eps
                         && std::abs(params.second - t1) <= smp_dur + 2*eps;

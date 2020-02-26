@@ -16,6 +16,22 @@
 
 namespace bord2 {
 
+/***********************************!
+ * \section Hints to the compilers
+ ************************************/
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Winvalid-noreturn"
+[[noreturn]] inline constexpr void unreachable() noexcept {
+#if defined(__GNUC__) && (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 5))
+    __builtin_unreachable();
+#elseif defined(_MSC_VER)
+    __assume(false);
+#endif
+}
+#pragma GCC diagnostic pop
+
+#define BORD2_ASSUME(x) do{ if(!x) ::bord2::unreachable(); } while(0)
+
 /************************************!
  * \section Convenient type traits
  ************************************/
@@ -23,19 +39,29 @@ namespace bord2 {
 template <class...>
 using void_t = void;
 
-template <class T, std::enable_if_t<std::is_default_constructible<T>::value,int> = 0>
+template <
+    class T,
+    std::enable_if_t<
+        !std::is_reference<T>::value
+        && std::is_default_constructible<T>::value,int
+        > = 0
+    >
 constexpr T absurd [[gnu::cold]]() noexcept {
     /* NOT REACHED */
     return T{};
 }
 
 template <class T, std::enable_if_t<!std::is_default_constructible<T>::value,int> = 0>
-constexpr T absurd [[gnu::cold]]() noexcept {
+[[noreturn]] constexpr T absurd [[gnu::cold]]() noexcept {
     /* NOT REACHED */
+    /*
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wnull-dereference"
     return *static_cast<T*>(nullptr);
 #pragma GCC diagnostic pop
+    */
+    unreachable();
+    // throw(std::exception());
 }
 
 constexpr bool allTrue(std::initializer_list<bool>&& flags) noexcept {

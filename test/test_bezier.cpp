@@ -354,14 +354,14 @@ TEST(Bezier2D, IntersectionLinLin)
         Eigen::Matrix2d mat;
         mat << cos(t), -sin(t), sin(t), cos(t);
 
-        auto bez1 = Bezier2D<Bezier<Eigen::Vector2d,1>>(
+        auto bez1 = Bezier<Eigen::Vector2d,1>(
             mat*Eigen::Vector2d(-1.0, 0.0),
             mat*Eigen::Vector2d(1.0, 0.0) );
-        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,1>>(
+        auto bez2 = Bezier<Eigen::Vector2d,1>(
             mat*Eigen::Vector2d(0.8, 0.6),
             mat*Eigen::Vector2d(0.8, -0.6) );
 
-        auto params = intersect(bez1, bez2);
+        auto params = intersect<12,3>(bez1, bez2);
         ASSERT_GE(params.size(), 1) << "t=" << t;
         EXPECT_LT(std::abs(params[0].first - 0.9), 10e-10);
         EXPECT_LT(std::abs(params[0].second - 0.5), 10e-10);
@@ -384,16 +384,16 @@ TEST(Bezier2D, IntersectionQQ)
         Eigen::Matrix2d mat;
         mat << cos(t), -sin(t), sin(t), cos(t);
 
-        auto bez1 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
+        auto bez1 = Bezier<Eigen::Vector2d,2>(
             mat*Eigen::Vector2d(-0.5, -1.0),
             mat*Eigen::Vector2d(1.0, 0.0),
             mat*Eigen::Vector2d(-0.5, 1.0) );
-        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
+        auto bez2 = Bezier<Eigen::Vector2d,2>(
             mat*Eigen::Vector2d(0.5, -1.0),
             mat*Eigen::Vector2d(-1.0, 0.0),
             mat*Eigen::Vector2d(0.5, 1.0) );
 
-        auto params = intersect(bez1, bez2);
+        auto params = intersect<12,3>(bez1, bez2);
         ASSERT_GE(params.size(), 2) << "t=" << t;
         EXPECT_LT(
             std::abs((mat.adjoint()*bez1.eval(params[0].first))(0)),
@@ -420,17 +420,17 @@ TEST(Bezier2D, IntersectionVarQL)
         Eigen::Matrix2d mat;
         mat << cos(t), -sin(t), sin(t), cos(t);
 
-        auto bez1 = Bezier2D<BezierVariant<Eigen::Vector2d,0,1,2>>(
+        auto bez1 = BezierVariant<Eigen::Vector2d,0,1,2>(
             std::integral_constant<size_t,2>(),
             mat*Eigen::Vector2d(-0.5, -1.0),
             mat*Eigen::Vector2d(1.0, 0.0),
             mat*Eigen::Vector2d(-0.5, 1.0) );
-        auto bez2 = Bezier2D<Bezier<Eigen::Vector2d,2>>(
+        auto bez2 = Bezier<Eigen::Vector2d,2>(
             mat*Eigen::Vector2d(0.5, -1.0),
             mat*Eigen::Vector2d(-1.0, 0.0),
             mat*Eigen::Vector2d(0.5, 1.0) );
 
-        auto params = intersect(bez1, bez2);
+        auto params = intersect<12,3>(bez1, bez2);
         ASSERT_GE(params.size(), 2) << "t=" << t;
         EXPECT_LT(
             std::abs((mat.adjoint()*bez1.eval(params[0].first))(0)),

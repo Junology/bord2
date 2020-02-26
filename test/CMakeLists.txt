@@ -19,6 +19,7 @@ if(GTEST_FOUND)
 	test_math.cpp
 	test_affhyp.cpp
 	test_bezier.cpp
+	test_bezierscheme.cpp
 	test_quadcurve.cpp
 	test_pltang.cpp
 	test_wiredtable.cpp

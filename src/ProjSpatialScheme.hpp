@@ -53,6 +53,7 @@ public:
 
     virtual ~ProjSpatialScheme() = default;
 
+    //! Create a new instance with the same state.
     template<class U, class... Args>
     ProjSpatialScheme<U> mimic(Args&&... args) const {
         auto scheme = ProjSpatialScheme<U>(m_focus, new U(std::forward<Args>(args)...));
@@ -61,6 +62,7 @@ public:
         return scheme;
     }
 
+    // Apply the translation and the projection to a given vector.
     BaseVertexType project(Eigen::Vector3d const &p)
     {
         std::array<double,2> center = PathScheme<Eigen::Vector3d>::getCenter();
@@ -70,6 +72,14 @@ public:
         return BaseVertexType{result(0), result(1)};
     }
 
+    //! Compute the depth vector, i.e. the kernel of the projection matrix.
+    Eigen::Vector3d getDepthVec() const noexcept {
+        Eigen::Vector3d depth_vec = m_mat_proj.fullPivLu().kernel();
+        depth_vec.normalize();
+        return depth_vec;
+    }
+
+    //! Set the matrix to an orthoprojection.
     void ortho(double elev, double azim) {
         double t = M_PI*elev/180.0;
         double u = M_PI*azim/180.0;
@@ -80,6 +90,7 @@ public:
             sin(t)*sin(u), sin(t)*cos(u), cos(t);
     }
 
+    //! Set the matrix to a cabinet projection.
     void cabinet(double angle, double depth_factor) {
         double t = M_PI*angle/180.0;
 
@@ -88,8 +99,10 @@ public:
             0.0, depth_factor*sin(t), 1.0;
     }
 
-    //* Overriding methods.
-    //** Scheme data query
+    /*!
+     * Overriding methods.
+     */
+    //@{
     virtual void translate(vertex_type const &p) noexcept override {
         //auto p2d = project(p);
         //mp_base->translate(BaseVertexType{p2d(0), p2d(1)});
@@ -106,4 +119,5 @@ public:
         m_focus = m_ststack.back().second;
         AdapterScheme<BaseScheme,Eigen::Vector3d>::restore();
     }
+    //@}
 };

@@ -940,4 +940,143 @@ For two elements $c_1,c_2\in S$, the following statements are all equivalent:
 \end{enumerate}
 \end{lemma}
 
+
+\section{Intersections of B\'ezier curves}
+
+In this section, we explain the \emph{B\'ezier clipping algorithm} developed in \cite{NishitaTakitaNakamae1992} to find intersection of B\'ezier curves.
+
+\subsection{Clipping B\'ezier curves}
+
+We first discuss clipping a piece of a B\'ezier curve.
+More precisely, suppose $\gamma:[0,1]\to\mathbb R^n$ is a B\'ezier curve with control points $\beta_0,\dots,\beta_d$; i.e.
+\[
+\gamma(t)
+= \sum_{i=0}^n \beta_i\binom{n}{i}t^i(1-t)^{n-i}
+\quad.
+\]
+For a subinterval $I=[a,b]\subset[0,1]$, we want a B\'ezier curve $\gamma_I$ satisfying the following equation:
+\[
+\gamma_I(t) = \gamma(a+(b-a)t)
+\quad;
+\]
+in other words, $\gamma_I$ is obtained by normalizing the parameter of the composition
+\[
+I\hookrightarrow[0,1]\xrightarrow{\gamma}\mathbb R^n
+\quad.
+\]
+
+\begin{proposition}[De Casteljau's algorithm]
+\label{prop:de-casteljau}
+Let $\gamma$ be a B\'ezier curve with control points $\beta_0,\dots,\beta_d$.
+For each $0\le a\le 1$, the restrictions $\left.\gamma\right|_{[0,a]}$ and $\left.\gamma\right|_{[a,1]}$ are again B\'ezier curves of the same degree after appropriate normalizations of parameters.
+Furthermore, the following hold:
+\begin{itemize}
+  \item on the left half $[0,a]$, $\left.\gamma\right|_{[0,a]}$ has control points $\beta^L_0,\dots,\beta^L_d$ with
+\[
+\beta^L_j = \sum_{i=0}^j\beta_i\binom{j}{i}a^i(1-a)^{j-i}
+\quad;
+\]
+  \item on the right half $[a,0]$, $\left.\gamma\right|_{[a,1]}$ has control points $\beta^R_0,\dots,\beta^R_d$ with
+\[
+\beta^R_j = \sum_{i=j}^d\beta_i\binom{d-j}{i-j}a^{i-j}(1-a)^{d-i}
+\quad.
+\]
+\end{itemize}
+\end{proposition}
+
+In view of De Casteljau's algorithm, it is convenient to represent a B\'ezier curve as a $n\times (d+1)$-matrix
+\[
+\begin{bmatrix}\beta_0 & \cdots & \beta_d\end{bmatrix}
+\]
+by arranging the control points as column vectors.
+Then, the ``left-half'' in \cref{prop:de-casteljau} is obtained by the matrix multiplication
+\[
+\begin{bmatrix}\beta^L_0 & \cdots & \beta^L_d\end{bmatrix}
+= \begin{bmatrix}\beta_0 & \cdots & \beta_d\end{bmatrix}
+\begin{bmatrix}
+1 & \cdots & (1-a)^j & \cdots & (1-a)^d \\
+& \ddots & \vdots && \vdots\\
+&& \binom{j}{i}a^i(1-a)^{j-i} & \cdots & \binom{d}{i}a^i(1-a)^{d-i} \\
+&&& \ddots & \vdots \\
+&&&& a^d
+\end{bmatrix}
+\]
+while the ``right-half'' is
+\[
+\begin{bmatrix}\beta^R_0 & \cdots & \beta^R_d\end{bmatrix}
+= \begin{bmatrix}\beta_0 & \cdots & \beta_d\end{bmatrix}
+\begin{bmatrix}
+(1-a)^d &&&& \\
+\vdots & \ddots &&& \\
+\binom{d}{i}a^i(1-a)^{d-i} & \cdots & \binom{d-j}{i-j}a^{i-j}(1-a)^{d-i} && \\
+\vdots && \vdots & \ddots & \\
+a^d & \cdots & a^{d-j} & \cdots & 1
+\end{bmatrix}
+\quad.
+\]
+To simplify the notation, we denote them by $S^L(a)$ and $S^R(a)$ respectively.
+Specifically,
+\[
+\begin{split}
+S^L(a)_{ij} &=
+\begin{cases}
+\displaystyle\binom{j}{i}a^i(1-a)^{j-i} & j\ge i\\
+\ 0 & j < i
+\end{cases}
+\quad,
+\\
+S^R(a)_{ij} &=
+\begin{cases}
+\displaystyle\binom{d-j}{i-j}a^{i-j}(1-a)^{d-i} & j \le i\\
+\ 0 & j > i
+\end{cases}
+\quad.
+\end{split}
+\]
+Finally, for a subinterval $I=[a,b]\subset[0,1]$, we can realize the clipped B\'ezier curve $\gamma_I$ by the control points
+\[
+\begin{bmatrix}
+\beta^I_0,\dots,\beta^I_d
+\end{bmatrix}
+=
+\begin{bmatrix}
+\beta_0,\dots,\beta_d
+\end{bmatrix}
+S^L(b)S^R(\frac{a}{b})
+\quad.
+\]
+Note that we have
+\[
+\begin{split}
+&\left(S^L(b)S^R(\frac{a}{b})\right)_{ij}
+= \sum_{k=0}^d S^L(b)_{ik}S^R(\frac{a}{b})_{kj} \\
+&= \sum_{k=\max\{i,j\}}^d\binom{k}{i}b^i(1-b)^{k-i}\cdot\binom{d-j}{k-j}\left(\frac{a}{b}\right)^{k-j}\left(1-\frac{a}{b}\right)^{d-k} \\
+&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d \binom{k}{i}\binom{d-j}{k-j}(1-b)^{k-i}a^{k-j}(b-a)^{d-k} \\
+&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d \binom{k}{i}\binom{d-j}{k-j}(1-b)^{k-i}a^{k-j}\sum_{l=0}^{d-k}\binom{d-k}{l}(-a)^{d-k-l}b^l \\
+&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d\sum_{l=0}^{d-k}\binom{k}{i}\binom{d-j}{k-j}\binom{d-k}{l}(-1)^{d-k-l}a^{d-j-l}b^l(1-b)^{k-i}
+\quad.
+\end{split}
+\]
+Using the equality $\binom{N}{n}\binom{N-n}{m} = \binom{N}{m}\binom{N-m}{n}$, we further have
+\[
+\begin{split}
+&\mathrm{RHS} \\
+&= \frac1{b^{d-j-i}}\sum_{l=0}^{d-\max\{i,j\}}\sum_{k=\max\{i,j\}}^{d-l} \binom{k}{i}\binom{d-j}{l}\binom{d-j-l}{k-j}(-1)^{d-k-l}a^{d-j-l}b^l(1-b)^{k-i} \\
+&= \frac1{b^{d-j-i}}\sum_{l=0}^{d-\max\{i,j\}}\binom{d-j}{l}(-a)^{d-j-l}b^l\sum_{k=\max\{i,j\}}^{d-l} \binom{k}{i}\binom{d-j-l}{k-j}(-1)^{d-k-l}(1-b)^{k-i} \\
+\end{split}
+\]
+If $i\le j$, the last summation gives
+\[
+\begin{split}
+&\sum_{k=j}^{d-l} \binom{k}{i}\binom{d-j-l}{k-j}(-1)^{d-k-l}(1-b)^{k-i} \\
+&= \sum_{k'=0}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{k'}(-1)^{d-j-k'-l}(1-b)^{j+k'-i} \\
+&= \sum_{k'=0}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{k'}(-1)^{d-j-k'-l}(1-b)^{j-i}\sum_{m=0}^{k'}\binom{k'}{m}(-b)^m \\
+&= (1-b)^{j-i}\sum_{k'=0}^{d-j-l}\sum_{m=0}^{k'}\binom{j+k'}{i}\binom{d-j-l}{k'}\binom{k'}{m}(-1)^{d-j-k'-l+m}b^m \\
+&= (1-b)^{j-i}\sum_{m=0}^{d-j-l}\sum_{k'=m}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{m}\binom{d-j-l-m}{k'-m}(-1)^{d-j-k'-l+m}b^m \\
+&= (1-b)^{j-i}\sum_{m=0}^{d-j-l}\binom{d-j-l}{m}b^m\sum_{k''=0}^{d-j-l-m}\binom{j+m+k''}{i}\binom{d-j-l-m}{k''}(-1)^{d-j-l-k''}\end{split}
+\]
+
+\begin{thebibliography}{99}
+  \bibitem{NishitaTakitaNakamae1992} T.~Nishita, S.~Takita, and E.~Nakamae, ``Hidden Curve Elimination of Trimmed Surfaces Using Bezier Clipping,'' CG International'92, 1992-6, pp.595--619.
+\end{thebibliography}
 \end{document}

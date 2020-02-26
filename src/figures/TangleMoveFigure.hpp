@@ -63,6 +63,7 @@ private:
         Eigen::Vector3d v;
         double midheight;
     };
+
     //! Paths in drawing.
     std::vector<std::vector<PathElem>> m_paths{};
 
@@ -237,11 +238,11 @@ protected:
             return std::make_pair(false, Eigen::Vector2d{0.0, 0.0});
         }
 
-        double numer = m_critV.adjoint() * (v2 - v1);
-        double denom = m_critV.adjoint() * (v0 - 2.0*v1 + v2);
+        double numer = m_critV.dot(v2 - v1);
+        double denom = m_critV.dot(v0 - 2.0*v1 + v2);
         double t = numer / denom;
 
-        return (0.0 <= t && t <= 1.0)
+        return (0.0 < t && t <= 1.0)
                       ? std::make_pair(
                           true,
                           (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2) )
@@ -389,7 +390,7 @@ protected:
             auto flag = comp.trackPathCyc(
                 key,
                 [&](std::pair<size_t, Eigen::Vector3d> const& v) {
-                    if(m_paths.empty()) {
+                    if(m_paths.back().empty()) {
                         m_paths.back().push_back({
                                 bord2::BeginPoint, v.second, 0.0});
                     }
@@ -401,10 +402,6 @@ protected:
                     }
                     prevheight = normh(v.second(2));
                 });
-            //* Debug
-            std::cout << __FILE__":" << __LINE__ << std::endl;
-            std::cout << std::boolalpha << flag << std::endl;
-            // */
         }
     }
 };

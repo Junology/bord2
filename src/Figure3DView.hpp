@@ -39,7 +39,7 @@ public:
 private:
     std::unique_ptr<PathFigure3D> mp_fig{};
     ProjectionMode m_prmode = Orthographic;
-    double m_elev{0.0}, m_azim{0.0};
+    double m_elev{30.0}, m_azim{30.0};
     std::array<double,3> m_focus{0.0, 0.0, 0.0};
 
 public:

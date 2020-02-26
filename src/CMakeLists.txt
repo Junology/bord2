@@ -11,6 +11,7 @@ add_executable(
   BordPreviewDialog.cpp
   WxGSScheme.cpp
   TikzScheme.cpp
+  BezierScheme.cpp
   math/AffHypPlane.cpp
   math/QuadraticCurve.cpp
   figures/QBezierTriangle.cpp
