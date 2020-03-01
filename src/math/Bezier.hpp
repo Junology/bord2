@@ -75,7 +75,7 @@ public:
 
     //! Get a control point.
     template<size_t i>
-    constexpr vertex_type const& get() const noexcept {
+    constexpr vertex_type const& get(std::integral_constant<size_t,i> = {}) const noexcept {
         static_assert(i<num_pts, "Index ouf of range.");
         return m_pts[i];
     }

@@ -10,6 +10,7 @@
 
 #include <type_traits>
 #include <utility>
+#include <limits>
 #include <tuple>
 #include <array>
 #include <vector>
@@ -125,7 +126,7 @@ template <class T>
 constexpr std::remove_reference_t<std::remove_cv_t<T> > popcount(T x) noexcept
 {
     // I hope the compiler unfolds the loop.
-    for(size_t i = 1; i < sizeof(T)*8; i <<= 1) {
+    for(size_t i = 1; i < std::numeric_limits<T>::digits; i <<= 1) {
         x = (x & bitwave<T>(i)) + ( (x>>i) & bitwave<T>(i) );
     }
 
@@ -136,29 +137,41 @@ constexpr std::remove_reference_t<std::remove_cv_t<T> > popcount(T x) noexcept
 template <class T>
 constexpr std::remove_reference_t<std::remove_cv_t<T>> counttrail1(T x) noexcept
 {
-    // These two operations clear the bits except the trailing 1s.
-    x = ~x & (x+1);
-    --x;
-    // Now, all we have to do is just counting bits of x.
-    return popcount<T>(x);
+    // All we have to do is just counting bits after clearing all bits but the trailing 1s.
+    return popcount<T>((~x & (x+1))-1);
 }
 
 //! Count trailing zeros (using the population count above).
 template <class T>
 constexpr std::remove_reference_t<std::remove_cv_t<T>> counttrail0(T x) noexcept
 {
-    x = ~x & (x-1);
-    return popcount<T>(x);
+    return popcount<T>(~x & (x-1));
 }
 
 //! Compile-time non-negative integer power
+//! It is verified that this function is faster than std::pow.
 template<class T>
-inline constexpr std::remove_reference_t<std::remove_cv_t<T> > cipow(T &&x, std::size_t n)
+inline constexpr T cipow(T x, unsigned int n) noexcept
 {
+    T result = 1;
+
+    while(n) {
+        if(n&0x1)
+            result *= x;
+        x *= x;
+        n >>= 1;
+    }
+
+    return result;
+
+    // The following version is faster than the above under
+    //   > g++ --std=c++14 -O2 -march=native
+    /* 
     if (n==0)
         return 1;
     else
         return ((n&0x1) ? x : 1)*cipow(x*x,n>>1);
+    */
 }
 
 //! Compile-time string length

@@ -33,15 +33,47 @@ private:
     vertex_type m_origin{0.0, 0.0, 0.0};
     std::vector<vertex_type> m_orig_stack{};
 
+    mutable std::thread m_computer{};
+    mutable std::atomic_bool m_to_be_computed{false};
+
 public:
 
+    ~BezierScheme() {
+        terminate();
+    }
     std::vector<BezierSequence> const& getRaw() const noexcept {
         return m_bezseqs;
     }
 
+    //! Move the raw buffer; after the function, the buffer becomes empty.
+    std::vector<BezierSequence> moveRaw() noexcept {
+        std::vector<BezierSequence> aux = std::move(m_bezseqs);
+        m_bezseqs = std::vector<BezierSequence>{};
+        return aux;
+    }
+
+    void clear() {
+        terminate();
+        m_bezseqs.clear();
+        m_lastpt = vertex_type{};
+        m_origin = vertex_type{};
+        m_orig_stack.clear();
+    }
+
+    //! Terminate the computation thread.
+    void terminate() const {
+        m_to_be_computed.store(false);
+        if(m_computer.joinable()) {
+            m_computer.join();
+        }
+    }
+
     //! Divide The sequences of Bezier curves so that their projections have no intersection in the plane.
-    //! \param kernel A kernel vector of the projection. If two Bezier curves intersect with each other, only the lower curve is divided with respect to this vector.
-    auto getProject(Eigen::Vector3d const& kernel) const
+    //! \param prmat The projection matrix, which must be of rank 2. If two Bezier curves intersect with each other in their projections, only the lower curve is divided with respect to the vector obtained as the cross product of the first two rows.
+    //! \param fun A functor object that is called at the end of the worker thread.
+    //! \note The worker thread is not created if prmat is of rank less than 2.
+    auto getProject(Eigen::Matrix<double,2,3> const& prmat,
+                    std::function<void(void)> fun = []{}) const
         -> std::future<std::vector<BezierSequence>>;
 
     /*!
@@ -87,7 +119,8 @@ protected:
     virtual void putPathElement(typename PathScheme<vertex_type>::PathElement const& elem) override {
         switch(elem.type) {
         case bord2::PathElemType::BeginPoint:
-            m_bezseqs.emplace_back();
+            if(m_bezseqs.empty() || !m_bezseqs.back().empty())
+                m_bezseqs.emplace_back();
             m_lastpt = m_origin + elem.v[0];
             break;
 

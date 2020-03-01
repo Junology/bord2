@@ -71,6 +71,7 @@ public:
             pltang,
             mvseqs,
             40*Eigen::Matrix3d::Identity() );
+        m_drawPane->updateBuffer();
         m_drawPane->Refresh();
     }
 

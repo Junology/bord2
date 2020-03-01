@@ -190,7 +190,9 @@ TEST(BezierScheme, ProjectOneParOne)
     scheme.qbezierTo(Eigen::Vector3d(0.5, -0.5, 0.0),
                      Eigen::Vector3d(0.5, 1.0, 1.0) );
 
-    auto result = scheme.getProject(Eigen::Vector3d(0.0, 0.0, 1.0)).get();
+    Eigen::Matrix<double,2,3> prmat{};
+    prmat << Eigen::Matrix2d::Identity(), Eigen::Vector2d(0, 0);
+    auto result = scheme.getProject(prmat).get();
 
     if(result.size() != 6) {
         std::cout << "Size: " << result.size() << std::endl;
@@ -211,11 +213,138 @@ TEST(BezierScheme, ProjectOneParOne)
         << result[2][0].target().adjoint();
     ASSERT_EQ(result[3].size(), 1);
     EXPECT_EQ(result[3][0].target(), Eigen::Vector3d(-0.5, -1.0, 1.0))
-        << result[3][0].target().adjoint();
+        << "[" << result[3][0].target().adjoint() << "]" << std::endl
+        << " != " << "[" << Eigen::RowVector3d(-0.5, -1.0, 1.0) << "]"
+        << std::endl;
     ASSERT_EQ(result[4].size(), 1);
     EXPECT_EQ(result[4][0].source(), Eigen::Vector3d(-1.0, -0.5, -1.0))
-        << result[4][0].target().adjoint();
+        << "[" << result[4][0].target().adjoint() << "]" << std::endl
+        << " != " << "[" << Eigen::Vector3d(-1.0, -0.5, -1.0) << "]"
+        << std::endl;
     ASSERT_EQ(result[5].size(), 1);
     EXPECT_EQ(result[5][0].target(), Eigen::Vector3d(0.5, 1.0, 1.0))
         << result[5][0].target().adjoint();
+}
+
+TEST(BezierScheme, Terminate)
+{
+    BezierScheme scheme{};
+
+    // Draw the same Bezier curve twice.
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 0.0, 0.0),
+        Eigen::Vector3d(1.0, 1.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 2.0, 0.0),
+        Eigen::Vector3d(0.0, 2.0, 0.0));
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 0.0, 0.0),
+        Eigen::Vector3d(1.0, 1.0, 0.0));
+
+    Eigen::Matrix<double,2,3> prmat{};
+    prmat << Eigen::Matrix2d::Identity(), Eigen::Vector2d(0, 0);
+
+    // This computation takes very long time.
+    auto fut_vec = scheme.getProject(prmat);
+
+    std::cout << "Waiting 100 [ms]" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::cout << "Terminating" << std::endl;
+    scheme.terminate();
+    std::cout << "Terminated" << std::endl;
+    auto vec = fut_vec.get();
+
+    EXPECT_TRUE(vec.empty());
+}
+
+TEST(BezierScheme, Redraw)
+{
+    Eigen::Matrix<double,2,3> prmat{};
+    prmat << Eigen::Matrix2d::Identity(), Eigen::Vector2d(0, 0);
+
+    BezierScheme scheme{};
+
+    // Draw the same paths twice.
+    // First draw:
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, -1.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, -1.0, 0.0),
+        Eigen::Vector3d(1.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 1.0, 0.0),
+        Eigen::Vector3d(0.0, 1.0, 0.0));
+    scheme.moveTo(
+        Eigen::Vector3d(-1.0, -1.0, 0.0));
+    scheme.lineTo(
+        Eigen::Vector3d(-1.0, 1.0, 0.0));
+
+    // Second draw:
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, -1.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, -1.0, 0.0),
+        Eigen::Vector3d(1.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 1.0, 0.0),
+        Eigen::Vector3d(0.0, 1.0, 0.0));
+    scheme.moveTo(
+        Eigen::Vector3d(-1.0, -1.0, 0.0));
+    scheme.lineTo(
+        Eigen::Vector3d(-1.0, 1.0, 0.0));
+
+    // This computation takes very long time.
+    auto fut_vec = scheme.getProject(prmat);
+    std::vector<BezierSequence> bezseq = scheme.moveRaw();
+
+    std::cout << "Waiting 100 [ms]" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    // Draw the same paths twice again.
+    // First draw:
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, -1.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, -1.0, 0.0),
+        Eigen::Vector3d(1.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 1.0, 0.0),
+        Eigen::Vector3d(0.0, 1.0, 0.0));
+    scheme.moveTo(
+        Eigen::Vector3d(-1.0, -1.0, 0.0));
+    scheme.lineTo(
+        Eigen::Vector3d(-1.0, 1.0, 0.0));
+
+    // Second draw:
+    scheme.moveTo(
+        Eigen::Vector3d(0.0, -1.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, -1.0, 0.0),
+        Eigen::Vector3d(1.0, 0.0, 0.0));
+    scheme.qbezierTo(
+        Eigen::Vector3d(1.0, 1.0, 0.0),
+        Eigen::Vector3d(0.0, 1.0, 0.0));
+    scheme.moveTo(
+        Eigen::Vector3d(-1.0, -1.0, 0.0));
+    scheme.lineTo(
+        Eigen::Vector3d(-1.0, 1.0, 0.0));
+
+    auto fut_vec2 = scheme.getProject(prmat);
+    std::vector<BezierSequence> bezseq2 = scheme.moveRaw();
+
+    std::cout << "Waiting 100 [ms]" << std::endl;
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+    std::cout << "Terminating" << std::endl;
+    scheme.terminate();
+    std::cout << "Terminated" << std::endl;
+    auto vec = fut_vec.get();
+    auto vec2 = fut_vec2.get();
+
+    EXPECT_TRUE(vec.empty());
+    EXPECT_TRUE(vec2.empty());
 }

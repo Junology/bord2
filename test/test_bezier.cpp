@@ -376,6 +376,26 @@ TEST(Bezier2D, IntersectionLinLin)
     }
 }
 
+TEST(Bezier2D, IntersectionLinLinTerminated)
+{
+    constexpr size_t max_smp = 20;
+    for(size_t i = 0; i < max_smp; ++i) {
+        double t = 2*i*M_PI/max_smp;
+        Eigen::Matrix2d mat;
+        mat << cos(t), -sin(t), sin(t), cos(t);
+
+        auto bez1 = Bezier<Eigen::Vector2d,1>(
+            mat*Eigen::Vector2d(-1.0, 0.0),
+            mat*Eigen::Vector2d(1.0, 0.0) );
+        auto bez2 = Bezier<Eigen::Vector2d,1>(
+            mat*Eigen::Vector2d(0.8, 0.6),
+            mat*Eigen::Vector2d(0.8, -0.6) );
+
+        auto params = intersect<12,3>(bez1, bez2, std::false_type{});
+        EXPECT_TRUE(params.empty());
+    }
+}
+
 TEST(Bezier2D, IntersectionQQ)
 {
     constexpr size_t max_smp = 20;

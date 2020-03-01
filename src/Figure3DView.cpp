@@ -17,13 +17,17 @@
 
 #include <iostream> // For Debug
 
+enum : long{
+    FIG3DVIEW_EVENT_LOWEST = wxID_HIGHEST,
+    FIG3DVIEW_EVENT_COMPLETE
+};
+
 IMPLEMENT_DYNAMIC_CLASS(Figure3DView, wxPanel)
 
 BEGIN_EVENT_TABLE(Figure3DView, wxPanel)
-
-EVT_PAINT(Figure3DView::OnPaint)
-EVT_KEY_DOWN(Figure3DView::OnKeyDown)
-
+    EVT_PAINT(Figure3DView::OnPaint)
+    EVT_KEY_DOWN(Figure3DView::OnKeyDown)
+    EVT_THREAD(FIG3DVIEW_EVENT_COMPLETE, Figure3DView::OnBezierReady)
 END_EVENT_TABLE()
 
 
@@ -61,6 +65,55 @@ Eigen::Matrix<double,2,3> getCabinetProjMat(double elev, double azim) noexcept
  *** Member functions ***
  ************************/
 
+// Get the projection matrix.
+Eigen::Matrix<double,2,3> Figure3DView::getPrMatrix() const noexcept
+{
+    switch(m_prmode) {
+    case ProjectionMode::Orthographic:
+        return getOrthoProjMat(m_elev, m_azim);
+
+    case ProjectionMode::Cabinet:
+        return getCabinetProjMat(m_elev, m_azim);
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
+        return {};
+    }
+}
+
+// Update the buffer of Bezier sequences.
+void Figure3DView::updateBuffer()
+{
+    // If no figure, do nothing.
+    if(!mp_fig)
+        return;
+
+    m_bezsch.clear();
+    mp_fig->draw(m_bezsch);
+    m_bezseq_incomputation
+        = m_bezsch.getProject(
+            getPrMatrix(),
+            [this] {
+                auto const tid = std::this_thread::get_id();
+                wxThreadEvent evt;
+                evt.SetId(FIG3DVIEW_EVENT_COMPLETE);
+                evt.SetInt(std::hash<std::thread::id>()(tid));
+                this->QueueEvent(evt.Clone());
+            } );
+    m_bezseq = m_bezsch.moveRaw();
+}
+
+void Figure3DView::setProjMode(ProjectionMode prmode) noexcept {
+    if (m_prmode == prmode)
+        return;
+
+    m_prmode = prmode;
+    mp_fig->updateProjector(getPrMatrix());
+    updateBuffer();
+    this->Refresh();
+}
+
 //! Paint Event handler
 void Figure3DView::OnPaint(wxPaintEvent &event) {
     render(wxPaintDC(this));
@@ -95,26 +148,17 @@ void Figure3DView::OnKeyDown(wxKeyEvent &event)
     double t = M_PI*m_elev/180.0;
     double u = M_PI*m_azim/180.0;
 
-    Eigen::Matrix<double,2,3> projmat;
-    switch(m_prmode) {
-    case ProjectionMode::Orthographic:
-        projmat = getOrthoProjMat(m_elev, m_azim);
-        break;
-
-    case ProjectionMode::Cabinet:
-        projmat = getCabinetProjMat(m_elev, m_azim);
-        break;
-
-    default:
-        std::cerr << __FILE__":" << __LINE__ << std::endl;
-        std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
-        return;
-    }
-
     // Inform the change of the angles.
     if (mp_fig)
-        mp_fig->updateProjector(projmat);
+        mp_fig->updateProjector(getPrMatrix());
 
+    updateBuffer();
+    this->Refresh();
+}
+
+//! Called when the computation is finished
+void Figure3DView::OnBezierReady(wxThreadEvent &event)
+{
     this->Refresh();
 }
 
@@ -132,15 +176,15 @@ void Figure3DView::render(wxWindowDC &&dc)
     dc.SetBackground(*wxWHITE_BRUSH);
     dc.Clear();
 
-    ProjSpatialScheme<WxGSScheme> wxgsOrtho{
+    ProjSpatialScheme<WxGSScheme> wxgsProj{
         Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]}, std::move(dc)};
     switch(m_prmode) {
     case ProjectionMode::Orthographic:
-        wxgsOrtho.ortho(m_elev, m_azim);
+        wxgsProj.ortho(m_elev, m_azim);
         break;
 
     case ProjectionMode::Cabinet:
-        wxgsOrtho.cabinet(m_azim, sin(M_PI*m_elev/180.0));
+        wxgsProj.cabinet(m_azim, sin(M_PI*m_elev/180.0));
         break;
 
     default:
@@ -149,5 +193,30 @@ void Figure3DView::render(wxWindowDC &&dc)
         return;
     }
 
-    mp_fig->draw(wxgsOrtho);
+    // If the computation is ready.
+    if (m_bezseq_incomputation.valid()) {
+        std::future_status stat
+            = m_bezseq_incomputation.wait_for(std::chrono::seconds::zero());
+        if(stat == std::future_status::ready) {
+            m_bezseq = m_bezseq_incomputation.get();
+        }
+    }
+
+    for(auto& bezseq : m_bezseq) {
+        if(bezseq.empty())
+           continue;
+
+        //* Debug
+        wxgsProj.setPen(5.0, bord2::PathColor::Blue);
+        wxgsProj.moveTo(bezseq.front().source());
+        wxgsProj.lineTo(bezseq.front().source());
+        wxgsProj.moveTo(bezseq.back().target());
+        wxgsProj.lineTo(bezseq.back().target());
+        wxgsProj.stroke();
+        // */
+
+        wxgsProj.setPen(2.0, bord2::PathColor::Red);
+        drawBezierSequence(bezseq, wxgsProj);
+        wxgsProj.stroke();
+    }
 }

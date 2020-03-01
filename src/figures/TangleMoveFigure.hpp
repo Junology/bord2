@@ -136,6 +136,10 @@ public:
             adpscheme.release();
         }
 
+        // If no moves, stop here.
+        if(m_paths.empty())
+            return;
+
         /* Draw the cobordisms */
         for(auto& path : m_paths) {
             if (path.size() <= 1)
@@ -167,6 +171,8 @@ public:
                 }
             }
         }
+
+        /* Draw the boundary */
 
         /* Draw the codomain tangle */{
             AdapterScheme<PathScheme<Eigen::Vector3d>, Eigen::Vector2d> adpscheme(

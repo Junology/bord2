@@ -233,14 +233,16 @@ auto clipByFL(BezierT const& bezsrc,
 /*!
  * Compute the intersections with another 2d bezier curve.
  * We use iterated mutual Bezier clipping algorithm.
+ * Since it may take much time, one can terminate the function using the flag argument (see below).
  * \tparam max_steps The number of steps of Bezier clippings. 12 is recommended.
  * \tparam clip_depth The depth of binary search in each Bezier clipping. 3 is recommended.
- * \return The list of parameters where two bezier curves intersect. As for each element of the vector, the first component is the parameter for *lhs* while the second is the one for *rhs*.
+ * \param flag A flag if the computation is supposed to be continued or not, which should be a functor object with signature bool(). The default value is std::true_type{} which returns always true, so the compiler hopefully remove all its effects.
+ * \return If the computation completed, the returned value is the list of parameters where two bezier curves intersect. As for each element of the vector, the first component is the parameter for *lhs* while the second is the one for *rhs*. On the other hand, if the computation is terminated, the returned value is always empty.
  * \post It is guaranteed that the returned vector is ordered so that the first components are non-decreasing (while no guarantee on the second).
  * \warning Intersections close to the ends will be thrown away.
  */
-template <size_t max_steps, size_t clip_depth, class LHSBezier, class RHSBezier>
-auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
+template <size_t max_steps, size_t clip_depth, class LHSBezier, class RHSBezier, class F = std::true_type>
+auto intersect(LHSBezier const& lhs, RHSBezier const& rhs, F&& flag = {}) noexcept
     -> std::vector<std::pair<double,double>>
 {
     // cf 2^30 = 1073741824 ~ 10^9
@@ -249,9 +251,15 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
 
     using typename bord2::Interval;
 
+    // If two Bezier curves are the same, we think of them disjoint.
+    // Hence the function returns the empty list immediately in this case.
+    if(std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end())) {
+        return {};
+    }
+
     std::map<Interval, std::vector<Interval>> interval_map{
         std::make_pair(Interval{0.0, 1.0},
-                       std::vector<Interval>{Interval{0.0, 1.0}})
+                       std::vector<Interval>(1,Interval{0.0, 1.0}))
     };
     decltype(interval_map) interval_aux;
 
@@ -260,8 +268,10 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
     auto rhs_xbern = rhs.convert([](Eigen::Vector2d const& v) { return v(0); });
     auto rhs_ybern = rhs.convert([](Eigen::Vector2d const& v) { return v(1); });
 
+    bool to_be_continued = flag();
+
     for(size_t i = 0; i < max_steps; ++i) {
-        if (interval_map.empty())
+        if (interval_map.empty() || !to_be_continued)
             return {};
 
         interval_aux.clear();
@@ -280,6 +290,9 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
                 continue;
 
             for(auto& intrvl : ipair.second) {
+                if(!to_be_continued)
+                    return {};
+
                 // Compute the enclosing rectangle of the RHS curve.
                 std::array<bord2::Interval,2> rectR = {
                     getBand(rhs_xbern, intrvl),
@@ -300,7 +313,8 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
 
                 // Clip the domain of the LHS Bezier curve.
                 // If the enclosing rectangle is collapsed, just keep the old one.
-                auto lhs_clips = rectL[0].isCollapsed() && rectL[1].isCollapsed()
+                auto lhs_clips
+                    = rectL[0].isCollapsed() && rectL[1].isCollapsed()
                     ? std::vector<bord2::Interval>{ipair.first}
                     : clipByFL(
                         lhs,
@@ -311,11 +325,20 @@ auto intersect(LHSBezier const& lhs, RHSBezier const& rhs) noexcept
                    continue;
 
                 for(auto& clipper : lhs_clips) {
+                    // Check the continuation flag;
+                    to_be_continued = flag();
+                    // if it is false, return immediately.
+                    if(!to_be_continued) {
+                        return {};
+                    }
+
+                    // Append the clipped segments of LHS to the buffer.
                     auto itr = interval_aux.emplace(
                         clipper, std::vector<Interval>{});
                     // Clip the domain of the RHS Bezier curve.
                     // If the enclosing rectangle is collapsed, just keep the old one.
-                    auto intvlR = rectR[0].isCollapsed() && rectR[1].isCollapsed()
+                    auto intvlR
+                        = rectR[0].isCollapsed() && rectR[1].isCollapsed()
                         ? std::vector<bord2::Interval>{intrvl}
                         : clipByFL(
                             rhs,

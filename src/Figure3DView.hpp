@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include "BezierScheme.hpp"
 #include "figures/PathFigure3D.hpp"
 
 class Figure3DView : public wxPanel
@@ -42,6 +43,12 @@ private:
     double m_elev{30.0}, m_azim{30.0};
     std::array<double,3> m_focus{0.0, 0.0, 0.0};
 
+    using BezierSequence = typename BezierScheme::BezierSequence;
+    using BezierSeqBuffer = std::vector<BezierSequence>;
+    BezierScheme m_bezsch{};
+    BezierSeqBuffer m_bezseq{};
+    std::future<BezierSeqBuffer> m_bezseq_incomputation{};
+
 public:
     Figure3DView()
         : wxPanel{}
@@ -63,15 +70,21 @@ public:
     double getElev() const noexcept { return m_elev; }
     double getAzim() const noexcept { return m_azim; }
     std::array<double,3> const& getFocus() const noexcept { return m_focus; }
+    //! Get the projection matrix.
+    Eigen::Matrix<double,2,3> getPrMatrix() const noexcept;
+    //! Update the buffer of Bezier sequences.
+    void updateBuffer();
 
     ProjectionMode getProjMode() const noexcept { return m_prmode; }
-    void setProjMode(ProjectionMode prmode) noexcept { m_prmode = prmode; }
+    void setProjMode(ProjectionMode prmode) noexcept;
 
     //! Set a figure.
     //! \param pfig A pointer to an instance of PathFigure3D which will be stored in std::unique_ptr; so one must not delete it unless \see release().
     //! This function just calls std::unique_ptr::reset(), so the old pointer, if any, will be deleted through it.
     void setFigure(PathFigure3D *pfig) {
         mp_fig.reset(pfig);
+        updateBuffer();
+        this->Refresh();
     }
 
     PathFigure3D const* getFigure() const noexcept {
@@ -96,6 +109,7 @@ protected:
 
     void OnPaint(wxPaintEvent &event);
     void OnKeyDown(wxKeyEvent &event);
+    void OnBezierReady(wxThreadEvent &event);
     void render(wxWindowDC &&dc);
 };
 

@@ -16,6 +16,10 @@
 
 using BezierSequence = typename BezierScheme::BezierSequence;
 
+//* Debug
+static std::mutex ostr_mutex;
+// */
+
 /*********************************************************!
  * Information on cutting a sequence of Bezier curves.
  *********************************************************/
@@ -51,7 +55,9 @@ struct BezierCutter {
 /**********************************!
  * Cut a sequence of Bezier curves
  **********************************/
-void cutoutBezSeq(BezierSequence const& src, std::set<BezierCutter> const& cutters, std::vector<BezierSequence> & out)
+void cutoutBezSeq(BezierSequence const& src,
+                  std::set<BezierCutter> const& cutters,
+                  std::vector<BezierSequence> & out)
 {
     BezierCutter lastcut{0, 0.0};
     bool carryover = false;
@@ -127,20 +133,29 @@ void cutoutBezSeq(BezierSequence const& src, std::set<BezierCutter> const& cutte
 template <class BezierT, class F>
 auto crosscut(std::vector<BezierT> const& lhs,
               std::vector<BezierT> const& rhs,
-              F const& f)
+              F const& f,
+              std::atomic_bool const& flag = std::atomic_bool{true}
+    )
     -> std::pair<std::set<BezierCutter>,std::set<BezierCutter>>
 {
     static_assert(
         std::is_same<typename BezierTraits<BezierT>::vertex_type, Eigen::Vector2d>::value,
         "The control points must be of type Eigen::Vector2d.");
 
+    bool to_be_continued = true;
     auto result = std::make_pair(
         std::set<BezierCutter>{}, std::set<BezierCutter>{} );
 
     // Traverse all parings.
-    for(size_t i = 0; i < lhs.size(); ++i) {
-        for(size_t j = 0; j < rhs.size(); ++j) {
-            for(auto& params : intersect<12,3>(lhs[i],rhs[j])) {
+    for(size_t i = 0; i < lhs.size() && to_be_continued; ++i) {
+        for(size_t j = 0; j < rhs.size() && to_be_continued; ++j) {
+            auto crosses = intersect<12,3>(
+                lhs[i], rhs[j],
+                [&flag]() -> bool {
+                    return flag.load(std::memory_order_acquire);
+                } );
+
+            for(auto& params : crosses) {
                 // Compute the heights at the crossing in the projections.
                 double lhei = f(true, BezierCutter{i, params.first});
                 double rhei = f(false, BezierCutter{j, params.second});
@@ -151,6 +166,8 @@ auto crosscut(std::vector<BezierT> const& lhs,
                 else
                     result.second.insert(BezierCutter{j, params.second});
             }
+
+            to_be_continued = flag.load(std::memory_order_acquire);
         }
     }
 
@@ -164,19 +181,29 @@ auto crosscut(std::vector<BezierT> const& lhs,
  *   > double(BezierCutter const&)
  *******************************************************************/
 template <class BezierT, class F>
-auto crosscut_self(std::vector<BezierT> const& bezseq, F const& f)
+auto crosscut_self(std::vector<BezierT> const& bezseq,
+                   F const& f,
+                   std::atomic_bool const &flag = std::atomic_bool{true}
+    )
     -> std::set<BezierCutter>
 {
     static_assert(
         std::is_same<typename BezierTraits<BezierT>::vertex_type, Eigen::Vector2d>::value,
         "The control points must be of type Eigen::Vector2d.");
 
+    bool to_be_continued = true;
     std::set<BezierCutter> result{};
 
     // Traverse all parings.
-    for(size_t i = 0; i < bezseq.size(); ++i) {
-        for(size_t j = i+1; j < bezseq.size(); ++j) {
-            for(auto& params : intersect<12,3>(bezseq[i],bezseq[j])) {
+    for(size_t i = 0; i < bezseq.size() && to_be_continued; ++i) {
+        for(size_t j = i+1; j < bezseq.size() && to_be_continued; ++j) {
+            auto crosses = intersect<12,3>(
+                bezseq[i], bezseq[j],
+                [&flag]() -> bool {
+                    return flag.load(std::memory_order_acquire);
+                });
+
+            for(auto& params : crosses) {
                 // Compute the heights at the crossing in the projections.
                 double lhei = f(BezierCutter{i, params.first});
                 double rhei = f(BezierCutter{j, params.second});
@@ -187,6 +214,8 @@ auto crosscut_self(std::vector<BezierT> const& bezseq, F const& f)
                 else
                     result.insert(BezierCutter{j, params.second});
             }
+
+            to_be_continued = flag.load(std::memory_order_acquire);
         }
     }
 
@@ -196,10 +225,13 @@ auto crosscut_self(std::vector<BezierT> const& bezseq, F const& f)
 
 /*********************************************************************!
  * Implementation of getProject member function of BezierScheme class
+ * This function should return as soon as possible when the value of the argument flag becomes false.
  *********************************************************************/
 auto getProject_impl(
     std::vector<BezierSequence> const& bezseqs,
-    Eigen::Matrix3d const& basis)
+    Eigen::Matrix3d const& basis,
+    std::atomic_bool const& flag = std::atomic_bool{true}
+    )
     -> std::vector<BezierSequence>
 {
     // Type aliases.
@@ -225,21 +257,53 @@ auto getProject_impl(
     std::vector<std::set<BezierCutter>> cutters(
         bezseqs.size(), std::set<BezierCutter>{} );
 
+    //* Debug
+    std::cout << __FILE__":" << __LINE__ << std::endl;
+    std::cout << "In Thread: " << std::this_thread::get_id() << std::endl;
+    // */
+
     /* Compute the self-crossings concurrently.*/
     {
         std::vector<std::thread> workers;
 
         for(size_t i = 0; i < bezseqs.size(); ++i) {
             workers.emplace_back(
-                [&cuts = cutters[i], &bezseq_2d = bezseqs_2d[i], &bezseq = bezseqs[i], &basis] {
+                [&cuts=cutters[i],
+                 &bezseq_2d=bezseqs_2d[i],
+                 &bezseq=bezseqs[i],
+                 &basis,
+                 &flag,
+                 /* Debug */ i]
+                {
+                    //* Debug
+                    {
+                        std::lock_guard<std::mutex> _(ostr_mutex);
+                        std::cout << __FILE__":" << __LINE__ << std::endl;
+                        std::cout << "Launch the Thread: "
+                                  << std::this_thread::get_id() << std::endl;
+                        std::cout << "Computing self-crossings of " << i << std::endl;
+                    }
+                    // */
+
                     auto selfcuts = crosscut_self(
                         bezseq_2d,
-                        [&bezseq, &basis](BezierCutter const& cut) -> double {
+                        [&bezseq, &basis](BezierCutter const& cut) -> double
+                        {
                             return basis.row(2) * bezseq[cut.index].eval(cut.param);
-                        } );
+                        }, flag );
                     cuts.insert(
                         std::make_move_iterator(selfcuts.begin()),
                         std::make_move_iterator(selfcuts.end()));
+
+                    //* Debug
+                    {
+                        std::lock_guard<std::mutex> _(ostr_mutex);
+                        std::cout << __FILE__":" << __LINE__ << std::endl;
+                        std::cout << "Finish the Thread: "
+                                  << std::this_thread::get_id() << std::endl;
+                        std::cout << "Finish self-crossings of " << i << std::endl;
+                    }
+                    // */
                 } );
         }
 
@@ -264,12 +328,28 @@ auto getProject_impl(
                           << std::endl;
                 // */
                 workers.emplace_back(
-                    [&cutsL = cutters[i], &cutsR = cutters[i+stride], &lhs2d = bezseqs_2d[i], &rhs2d = bezseqs_2d[i+stride], &lhs = bezseqs[i], &rhs = bezseqs[i+stride], basis, &mutexL = mutexes[i], &mutexR = mutexes[i+stride]]() {
+                    [&cutsL = cutters[i], &cutsR = cutters[i+stride],
+                     &lhs2d = bezseqs_2d[i], &rhs2d = bezseqs_2d[i+stride],
+                     &lhs = bezseqs[i], &rhs = bezseqs[i+stride],
+                     &basis,
+                     &mutexL = mutexes[i], &mutexR = mutexes[i+stride],
+                     &flag,
+                     /*Debug*/ i, /*Debug*/ j=i+stride]()
+                    {
+                        //* Debug
+                        {
+                            std::lock_guard<std::mutex> _(ostr_mutex);
+                            std::cout << __FILE__":" << __LINE__ << std::endl;
+                            std::cout << "Launch the Thread: "
+                                      << std::this_thread::get_id() << std::endl;
+                            std::cout << "Computing crossings of " << i << " and " << j << std::endl;
+                        }
+                        // */
                         auto crscuts = crosscut(
                             lhs2d, rhs2d,
                             [&lhs, &rhs, &basis](bool flag, BezierCutter const& cut) -> double {
                                 return basis.row(2)*(flag ? lhs[cut.index].eval(cut.param) : rhs[cut.index].eval(cut.param));
-                            } );
+                            }, flag);
 
                         {
                             std::lock_guard<std::mutex> gurdL(mutexL);
@@ -283,6 +363,15 @@ auto getProject_impl(
                                 std::make_move_iterator(crscuts.second.begin()),
                                 std::make_move_iterator(crscuts.second.end()) );
                         }
+                        //* Debug
+                        {
+                            std::lock_guard<std::mutex> _(ostr_mutex);
+                            std::cout << __FILE__":" << __LINE__ << std::endl;
+                            std::cout << "Finish the Thread: "
+                                      << std::this_thread::get_id() << std::endl;
+                            std::cout << "Finish " << i << " and " << j << std::endl;
+                        }
+                        // */
                     } );
             }
         }
@@ -294,7 +383,7 @@ auto getProject_impl(
     // Cut-out the sequences of Bezier curves and write the results
     std::vector<BezierSequence> result{};
     result.reserve(bezseqs.size());
-    for(size_t i = 0; i < bezseqs.size(); ++i) {
+    for(size_t i = 0; i < bezseqs.size() && flag.load(std::memory_order_acquire); ++i) {
         /* Debug
         std::cout << __FILE__":" << __LINE__ << std::endl;
         std::cout << "i=" << i
@@ -311,11 +400,16 @@ auto getProject_impl(
 /******************************
  * BezierScheme::getProject
  ******************************/
-auto BezierScheme::getProject(Eigen::Vector3d const& kernel) const
+auto BezierScheme::getProject(
+    Eigen::Matrix<double,2,3> const& prmat,
+    std::function<void(void)> fun
+    ) const
     -> std::future<std::vector<BezierSequence>>
 {
     std::promise<std::vector<BezierSequence>> p;
     auto fut = p.get_future();
+
+    Eigen::RowVector3d kernel = prmat.row(0).cross(prmat.row(1));
 
     // If the depth vector is the zero vector, return immediately.
     if (kernel.isZero()) {
@@ -330,16 +424,21 @@ auto BezierScheme::getProject(Eigen::Vector3d const& kernel) const
     // Notice that the result depends not on this projection but only on the kernel.
     Eigen::Matrix3d basis;
 
-    basis.row(2) = kernel.adjoint();
-    basis.block<2,3>(0,0)
-        = basis.row(2).fullPivLu().kernel().adjoint();
+    kernel.normalize();
+    basis.block<2,3>(0,0) = prmat;
+    basis.row(2) = kernel;
 
-    std::thread worker(
-        [basis, bezseqs = m_bezseqs, p=std::move(p)]() mutable {
-            p.set_value(getProject_impl(bezseqs, basis));
+    terminate();
+    m_to_be_computed.store(true);
+    m_computer = std::thread(
+        [basis, bezseqs=m_bezseqs, p=std::move(p), f=std::move(fun), &flag=m_to_be_computed]() mutable
+        {
+            p.set_value(getProject_impl(bezseqs, basis, flag));
+
+            // Invoke f() if the computation successfully finished.
+            if(flag.load(std::memory_order_acquire))
+                f();
         } );
-
-    worker.detach();
 
     return fut;
 }
