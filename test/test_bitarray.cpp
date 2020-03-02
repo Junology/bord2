@@ -301,6 +301,119 @@ TEST(TestBitArray, Bool)
     EXPECT_FALSE(static_cast<bool>(ba&(ba >> 1)));
 }
 
+TEST(TestBitArray, PopIterator)
+{
+    constexpr auto bits = BitArray<91,uint16_t>(
+        0b1000010001001011u,
+        0b0001000000100000u,
+        0b0010000000010000u,
+        0b0000000010000000u,
+        0b0100000000000100u,
+        0b0000100000000000u
+        );
+
+
+    std::vector<size_t> indices;
+
+    std::for_each(
+        bits.popBegin(), bits.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 13);
+    EXPECT_EQ(indices[0], 0);
+    EXPECT_EQ(indices[1], 1);
+    EXPECT_EQ(indices[2], 3);
+    EXPECT_EQ(indices[3], 6);
+    EXPECT_EQ(indices[4], 10);
+    EXPECT_EQ(indices[5], 15);
+    EXPECT_EQ(indices[6], 21);
+    EXPECT_EQ(indices[7], 28);
+    EXPECT_EQ(indices[8], 36);
+    EXPECT_EQ(indices[9], 45);
+    EXPECT_EQ(indices[10], 55);
+    EXPECT_EQ(indices[11], 66);
+    EXPECT_EQ(indices[12], 78);
+
+    constexpr auto bits2 = BitArray<64,uint64_t>(0x3);
+
+    indices.clear();
+    std::for_each(
+        bits2.popBegin(), bits2.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 2);
+    EXPECT_EQ(indices[0], 0);
+    EXPECT_EQ(indices[1], 1);
+
+    constexpr auto bits3 = BitArray<64,uint16_t>(0x3);
+
+    indices.clear();
+    std::for_each(
+        bits3.popBegin(), bits3.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 2);
+    EXPECT_EQ(indices[0], 0);
+    EXPECT_EQ(indices[1], 1);
+
+    constexpr auto bits4 = BitArray<64,uint16_t>(0x3, 0x0, 0x3);
+
+    indices.clear();
+    std::for_each(
+        bits4.popBegin(), bits4.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 4);
+    EXPECT_EQ(indices[0], 0);
+    EXPECT_EQ(indices[1], 1);
+    EXPECT_EQ(indices[2], 32);
+    EXPECT_EQ(indices[3], 33);
+
+    constexpr auto bits5 = BitArray<64,uint16_t>(0x0, 0x0, 0x3);
+
+    indices.clear();
+    std::for_each(
+        bits5.popBegin(), bits5.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 2);
+    EXPECT_EQ(indices[0], 32);
+    EXPECT_EQ(indices[1], 33);
+
+    constexpr auto bits6 = BitArray<64>(0x3);
+
+    indices.clear();
+    std::for_each(
+        bits6.popBegin(), bits6.popEnd(),
+        [&indices](size_t i) {
+            indices.push_back(i);
+        } );
+    ASSERT_EQ(indices.size(), 2);
+    EXPECT_EQ(indices[0], 0);
+    EXPECT_EQ(indices[1], 1);
+
+    // Constexpr test
+    struct TestFunc {
+        constexpr size_t operator()(BitArray<91,uint16_t> const& src) const noexcept
+        {
+            size_t result = 0;
+            auto beg = src.popBegin(), end = src.popEnd();
+            for(auto itr = beg; itr != end; ++itr) {
+                result += *itr;
+            }
+            return result;
+        }
+    };
+    constexpr TestFunc sumf{};
+    constexpr auto tot = sumf(bits);
+    EXPECT_EQ(tot, 364);
+}
+
 //* An application: Sieve of Eratosthenes
 TEST(TestBitArray, Primes)
 {

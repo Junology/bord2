@@ -159,6 +159,8 @@ void Figure3DView::OnKeyDown(wxKeyEvent &event)
 //! Called when the computation is finished
 void Figure3DView::OnBezierReady(wxThreadEvent &event)
 {
+    if(m_bezseq_incomputation.valid())
+        m_bezseq = m_bezseq_incomputation.get();
     this->Refresh();
 }
 
@@ -178,45 +180,5 @@ void Figure3DView::render(wxWindowDC &&dc)
 
     ProjSpatialScheme<WxGSScheme> wxgsProj{
         Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]}, std::move(dc)};
-    switch(m_prmode) {
-    case ProjectionMode::Orthographic:
-        wxgsProj.ortho(m_elev, m_azim);
-        break;
-
-    case ProjectionMode::Cabinet:
-        wxgsProj.cabinet(m_azim, sin(M_PI*m_elev/180.0));
-        break;
-
-    default:
-        std::cerr << __FILE__":" << __LINE__ << std::endl;
-        std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
-        return;
-    }
-
-    // If the computation is ready.
-    if (m_bezseq_incomputation.valid()) {
-        std::future_status stat
-            = m_bezseq_incomputation.wait_for(std::chrono::seconds::zero());
-        if(stat == std::future_status::ready) {
-            m_bezseq = m_bezseq_incomputation.get();
-        }
-    }
-
-    for(auto& bezseq : m_bezseq) {
-        if(bezseq.empty())
-           continue;
-
-        //* Debug
-        wxgsProj.setPen(5.0, bord2::PathColor::Blue);
-        wxgsProj.moveTo(bezseq.front().source());
-        wxgsProj.lineTo(bezseq.front().source());
-        wxgsProj.moveTo(bezseq.back().target());
-        wxgsProj.lineTo(bezseq.back().target());
-        wxgsProj.stroke();
-        // */
-
-        wxgsProj.setPen(2.0, bord2::PathColor::Red);
-        drawBezierSequence(bezseq, wxgsProj);
-        wxgsProj.stroke();
-    }
+    drawToScheme(wxgsProj);
 }

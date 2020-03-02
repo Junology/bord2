@@ -9,6 +9,7 @@
 #include "TikzScheme.hpp"
 
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 
 std::string getTikzColor(const bord2::PathColor &col)
@@ -125,6 +126,7 @@ static std::string realizePath(std::vector<TikzScheme::PathElement> const& path)
 {
     std::ostringstream oss;
 
+    oss << std::setprecision(4) << std::defaultfloat;
     for(auto elem : path) {
         switch (elem.type) {
         case bord2::PathElemType::BeginPoint:

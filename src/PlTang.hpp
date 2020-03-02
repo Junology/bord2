@@ -209,12 +209,12 @@ public:
     }
 
     //! Get the domain in its binary representation.
-    constexpr binrep_type domain() const noexcept {
+    constexpr binrep_type const& domain() const noexcept {
         return m_bincob[m_vlength];
     }
 
     //! Get the codomain in its binary representation.
-    constexpr binrep_type codomain() const noexcept {
+    constexpr binrep_type const& codomain() const noexcept {
         return m_bincob[0];
     }
 

@@ -16,6 +16,7 @@
 #include <memory>
 
 #include "BezierScheme.hpp"
+#include "ProjSpatialScheme.hpp"
 #include "figures/PathFigure3D.hpp"
 
 class Figure3DView : public wxPanel
@@ -102,6 +103,42 @@ public:
 
     inline void queuePaint() {
         render(wxClientDC(this));
+    }
+
+    template <class T>
+    void drawToScheme(ProjSpatialScheme<T> &scheme) const noexcept {
+        switch(m_prmode) {
+        case ProjectionMode::Orthographic:
+            scheme.ortho(m_elev, m_azim);
+            break;
+
+        case ProjectionMode::Cabinet:
+            scheme.cabinet(m_azim, sin(M_PI*m_elev/180.0));
+            break;
+
+        default:
+            std::cerr << __FILE__":" << __LINE__ << std::endl;
+            std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
+            return;
+        }
+
+        for(auto& bezseq : m_bezseq) {
+            if(bezseq.empty())
+                continue;
+
+            /* Debug
+            scheme.setPen(5.0, bord2::PathColor::Blue);
+            scheme.moveTo(bezseq.front().source());
+            scheme.lineTo(bezseq.front().source());
+            scheme.moveTo(bezseq.back().target());
+            scheme.lineTo(bezseq.back().target());
+            scheme.stroke();
+            // */
+
+            scheme.setPen(2.0, bord2::PathColor::Red);
+            drawBezierSequence(bezseq, scheme);
+            scheme.stroke();
+        }
     }
 
 protected:

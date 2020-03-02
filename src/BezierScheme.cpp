@@ -257,7 +257,7 @@ auto getProject_impl(
     std::vector<std::set<BezierCutter>> cutters(
         bezseqs.size(), std::set<BezierCutter>{} );
 
-    //* Debug
+    /* Debug
     std::cout << __FILE__":" << __LINE__ << std::endl;
     std::cout << "In Thread: " << std::this_thread::get_id() << std::endl;
     // */
@@ -275,7 +275,7 @@ auto getProject_impl(
                  &flag,
                  /* Debug */ i]
                 {
-                    //* Debug
+                    /* Debug
                     {
                         std::lock_guard<std::mutex> _(ostr_mutex);
                         std::cout << __FILE__":" << __LINE__ << std::endl;
@@ -289,13 +289,13 @@ auto getProject_impl(
                         bezseq_2d,
                         [&bezseq, &basis](BezierCutter const& cut) -> double
                         {
-                            return basis.row(2) * bezseq[cut.index].eval(cut.param);
+                            return -basis.row(2)*bezseq[cut.index].eval(cut.param);
                         }, flag );
                     cuts.insert(
                         std::make_move_iterator(selfcuts.begin()),
                         std::make_move_iterator(selfcuts.end()));
 
-                    //* Debug
+                    /* Debug
                     {
                         std::lock_guard<std::mutex> _(ostr_mutex);
                         std::cout << __FILE__":" << __LINE__ << std::endl;
@@ -336,7 +336,7 @@ auto getProject_impl(
                      &flag,
                      /*Debug*/ i, /*Debug*/ j=i+stride]()
                     {
-                        //* Debug
+                        /* Debug
                         {
                             std::lock_guard<std::mutex> _(ostr_mutex);
                             std::cout << __FILE__":" << __LINE__ << std::endl;
@@ -348,7 +348,7 @@ auto getProject_impl(
                         auto crscuts = crosscut(
                             lhs2d, rhs2d,
                             [&lhs, &rhs, &basis](bool flag, BezierCutter const& cut) -> double {
-                                return basis.row(2)*(flag ? lhs[cut.index].eval(cut.param) : rhs[cut.index].eval(cut.param));
+                                return -basis.row(2)*(flag ? lhs[cut.index].eval(cut.param) : rhs[cut.index].eval(cut.param));
                             }, flag);
 
                         {
@@ -363,7 +363,7 @@ auto getProject_impl(
                                 std::make_move_iterator(crscuts.second.begin()),
                                 std::make_move_iterator(crscuts.second.end()) );
                         }
-                        //* Debug
+                        /* Debug
                         {
                             std::lock_guard<std::mutex> _(ostr_mutex);
                             std::cout << __FILE__":" << __LINE__ << std::endl;
@@ -433,7 +433,9 @@ auto BezierScheme::getProject(
     m_computer = std::thread(
         [basis, bezseqs=m_bezseqs, p=std::move(p), f=std::move(fun), &flag=m_to_be_computed]() mutable
         {
-            p.set_value(getProject_impl(bezseqs, basis, flag));
+            p.set_value_at_thread_exit(
+                getProject_impl(bezseqs, basis, flag));
+            // p.set_value(getProject_impl(bezseqs, basis, flag));
 
             // Invoke f() if the computation successfully finished.
             if(flag.load(std::memory_order_acquire))

@@ -131,7 +131,6 @@ public:
                     Eigen::Vector2d(1.0, 0.0),
                     Eigen::Vector2d(0.0, 1.0) };
 
-            adpscheme.setPen(2, bord2::Red);
             pltangfig.draw(adpscheme);
             adpscheme.release();
         }
@@ -173,6 +172,26 @@ public:
         }
 
         /* Draw the boundary */
+        std::for_each(
+            m_tangDom.domain().popBegin(),
+            m_tangDom.domain().popEnd(),
+            [this, &scheme](size_t x) {
+                scheme.moveTo(
+                    m_base*Eigen::Vector3d(x+0.5, 0.0, 0.0));
+                scheme.lineTo(
+                    m_base*Eigen::Vector3d(x+0.5, 0.0, m_mvseqs.size()));
+            } );
+        std::for_each(
+            m_tangDom.codomain().popBegin(),
+            m_tangDom.codomain().popEnd(),
+            [this, &scheme](size_t x) {
+                scheme.moveTo(
+                    m_base*Eigen::Vector3d(
+                        x+0.5, m_tangDom.vlength(), 0.0));
+                scheme.lineTo(
+                    m_base*Eigen::Vector3d(
+                        x+0.5, m_tangDom.vlength(), m_mvseqs.size()));
+            } );
 
         /* Draw the codomain tangle */{
             AdapterScheme<PathScheme<Eigen::Vector3d>, Eigen::Vector2d> adpscheme(
@@ -186,7 +205,6 @@ public:
                     Eigen::Vector2d(1.0, 0.0),
                     Eigen::Vector2d(0.0, 1.0) };
 
-            adpscheme.setPen(2, bord2::Red);
             pltangfig.draw(adpscheme);
             adpscheme.release();
         }

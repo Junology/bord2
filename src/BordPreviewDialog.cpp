@@ -96,9 +96,26 @@ void BordPreviewDialog::OnTikz(wxCommandEvent &event)
         }
     };
 
-    scheme.ortho(elev, azim);
+    /*
+    switch(m_drawPane->getProjMode()) {
+    case Figure3DView::ProjectionMode::Orthographic:
+        scheme.ortho(elev, azim);
+        break;
+
+    case Figure3DView::ProjectionMode::Cabinet:
+        scheme.cabinet(elev, azim);
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown projection mode." << std::endl;
+        break;
+    }
 
     m_drawPane->getFigure()->draw(scheme);
+    */
+    m_drawPane->drawToScheme(scheme);
+
     ROEntryDialog dlg(
         this, wxID_ANY,
         "Tikz Code",

@@ -22,7 +22,7 @@ void ROEntryDialog::CreateControls(wxString const& text)
         wxID_ANY,
         text,
         wxDefaultPosition,
-        wxDefaultSize,
+        wxSize(300,200),
         wxTE_MULTILINE | wxTE_DONTWRAP | wxTE_READONLY );
 
     // Place controls in the sizer.
