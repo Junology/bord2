@@ -28,23 +28,9 @@ class TangleMoveFigure;
 template <size_t R, size_t C>
 class TangleMoveFigure<PlTang<R,C>> : public PathFigure3D
 {
-public:
-    struct MoveDrawData {
-        size_t x, y, z;
-        Eigen::Vector2d vproj;
-    };
-
 private:
-    enum ConnectionVertex : size_t {
-        BeforeUL = 0,
-        BeforeUR = 1,
-        BeforeDL = 2,
-        BeforeDR = 3,
-        AfterUL  = 4,
-        AfterUR  = 5,
-        AfterDL  = 6,
-        AfterDR  = 7
-    };
+    //! Internal representation of drawn object.
+    using PathGraph = GenericGraph<std::map<size_t,Eigen::Vector3d>>;
 
     //! Tangles in the domain and the codomain of the bordism.
     PlTang<R,C> m_tangDom{}, m_tangCod{};
@@ -61,7 +47,7 @@ private:
     struct PathElem {
         bord2::PathElemType type;
         Eigen::Vector3d v;
-        double midheight;
+        double midheight[2];
     };
 
     //! Paths in drawing.
@@ -73,10 +59,9 @@ public:
                      Eigen::Matrix3d const& base)
         : m_tangDom(tang), m_tangCod(tang),
           m_mvseqs(mvseqs),
-          m_base(base)
+          m_base(base),
+          m_critV(1.0, 0.0)
     {
-        m_critV = Eigen::Vector2d(1.0, 0.0);
-
         for(auto& seq : mvseqs) {
             for(auto& mv : seq) {
                 m_tangCod.replace(mv.x, mv.y, mv.move.getAfter());
@@ -157,11 +142,11 @@ public:
                         auto c1 = Eigen::Vector3d(
                             path[i-1].v(0),
                             path[i-1].v(1),
-                            path[i].midheight );
+                            path[i].midheight[0] );
                         auto c2 = Eigen::Vector3d(
                             path[i].v(0),
                             path[i].v(1),
-                            path[i].midheight );
+                            path[i].midheight[1] );
                         scheme.bezierTo(m_base*c1, m_base*c2, m_base*path[i].v);
                     }
                     break;
@@ -266,13 +251,32 @@ protected:
         double denom = m_critV.dot(v0 - 2.0*v1 + v2);
         double t = numer / denom;
 
-        return (0.0 < t && t <= 1.0)
-                      ? std::make_pair(
-                          true,
-                          (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2) )
-                      : std::make_pair(
-                          false,
-                          Eigen::Vector2d{0.0, 0.0} );
+        if (0.0 < t && t <= 1.0)
+            return std::make_pair(
+                true,
+                (t*t*v0 + 2*t*(1-t)*v1 + (1-t)*(1-t)*v2) );
+        else
+            return std::make_pair(false, Eigen::Vector2d());
+    }
+
+    //! Append the identity on the pathgraph.
+    //! \param f The predicator which returns true on the cells where the identity are put.
+    template <class F>
+    inline void putIdentity(PlTang<R,C> const& tang, size_t level, PathGraph& graph, F const& f) const noexcept {
+        tang.traverse(
+            [&](size_t i, size_t j, char c) {
+                if(!f(i,j))
+                    return;
+                auto crv = getCrit(c);
+                if (!crv.first)
+                    return;
+                auto cellorig = Eigen::Vector3d(i,j,level);
+                Eigen::Vector3d beg = Eigen::Matrix<double,3,2>::Identity()*crv.second + cellorig;
+                auto end = beg + Eigen::Vector3d(0,0,1);
+                graph.connect(
+                    findAppend(graph, beg),
+                    findAppend(graph, end) );
+            } );
     }
 
     void makePath() {
@@ -280,7 +284,8 @@ protected:
         m_paths.clear();
 
         PlTang<R,C> tang_cur = m_tangDom;
-        GenericGraph<std::map<size_t,Eigen::Vector3d>> graph;
+        PathGraph graph;
+        std::set<size_t> tmp_keys{};
         std::vector<size_t> levels(m_mvseqs.size(), 0);
 
         // Counter for the layers.
@@ -289,10 +294,22 @@ protected:
         // Traverse all the grouped moves
         for (size_t r = 0; r < m_mvseqs.size(); ++r) {
             auto commBeg = m_mvseqs[r].begin();
-            auto commData = noncommHead(m_tangCod,
-                                        commBeg,
-                                        m_mvseqs[r].end());
+            auto commData = noncommHead(
+                m_tangCod,
+                commBeg,
+                m_mvseqs[r].end());
 
+            // Empty move yields the identity.
+            if(m_mvseqs[r].empty()) {
+                putIdentity(
+                    tang_cur, q, graph,
+                    [](size_t, size_t) { return true; });
+                ++q;
+                levels[r] = 1;
+                continue;
+            }
+
+            // Non-empty move.
             while (commBeg != m_mvseqs[r].end()) {
                 PlTangMove<2,2>::MoveElem mv = *commBeg;
 
@@ -339,6 +356,7 @@ protected:
                             Eigen::Vector3d(mv.x+1.0, mv.y+1.0, q+levels[r]+0.5));
                         graph.connect(keym, keymid);
                         graph.connect(keyn, keymid);
+                        tmp_keys.insert(keymid);
                     } );
                 // Advance the cursor
                 ++commBeg;
@@ -346,22 +364,12 @@ protected:
                 // If the cursor reaches the non-commutative move;
                 if(commBeg == commData.first) {
                     // Draw the identities.
-                    tang_cur.traverse(
-                        [&,this](size_t i, size_t j, char c) {
-                            if (commData.second[i+j*tang_cur.hlength()])
-                                return;
-                            auto crv = getCrit(c);
-                            if (!crv.first)
-                                return;
-
-                            auto beg = Eigen::Vector3d(
-                                i+crv.second(0), j+crv.second(1), q+levels[r]);
-                            auto keyb = findAppend(graph, beg);
-                            auto end = Eigen::Vector3d(
-                                i+crv.second(0), j+crv.second(1), q+levels[r]+1);
-                            auto keye = findAppend(graph, end);
-                            graph.connect(keyb, keye);
+                    putIdentity(
+                        tang_cur, q+levels[r], graph,
+                        [&commData, &tang_cur](size_t i, size_t j) -> bool {
+                            return !commData.second[i+j*tang_cur.hlength()];
                         } );
+
                     // Advance the count of levels.
                     ++levels[r];
                     // Compute the next cluster of mutually commutative moves.
@@ -385,28 +393,22 @@ protected:
                 q+=levels[r];
                 ++r;
             }
-            if (levels[r] > 0)
-                hei = (hei-q)/levels[r] + r;
-
-            return hei;
-        };
-
-        // Integral detector
-        auto isInt = [](double x) -> bool {
-            constexpr double threshold = 10e-10;
-            return std::abs(x-std::round(x)) < threshold;
+            return (hei-q)/levels[r] + r;
         };
 
         while(graph.inhabited()) {
             auto comp = graph.trimComponent(graph.minkey());
             auto mayend = comp.findEnd();
             auto maynode = comp.findKey(
-                    [&isInt](std::pair<size_t, Eigen::Vector3d> const &v) -> bool{
-                        return isInt(v.second(2));
-                    } );
+                [end = tmp_keys.end(), &tmp_keys](std::pair<size_t, Eigen::Vector3d> const &v)
+                -> bool
+                {
+                    return tmp_keys.find(v.first) == end;
+                } );
             m_paths.emplace_back();
 
             double prevheight = 0.0;
+            bool prev_is_node = true;
             auto key = mayend.first
                 ? mayend.second
                 : (maynode ? maynode->first : comp.minkey());
@@ -414,17 +416,30 @@ protected:
             auto flag = comp.trackPathCyc(
                 key,
                 [&](std::pair<size_t, Eigen::Vector3d> const& v) {
+                    bool is_node = tmp_keys.find(v.first) == tmp_keys.end();
                     if(m_paths.back().empty()) {
                         m_paths.back().push_back({
                                 bord2::BeginPoint, v.second, 0.0});
+                        prevheight = normh(v.second(2));
                     }
-                    else if(isInt(v.second(2))) {
+                    else if(is_node) {
+                        double height = normh(v.second(2));
                         m_paths.back().push_back({
-                            isInt(prevheight) ? bord2::Line : bord2::Bezier,
+                            prev_is_node ? bord2::Line : bord2::Bezier,
                             modifZ(v.second, normh),
-                            prevheight });
+                            prevheight,
+                            height < prevheight
+                                     ? normh(v.second(2) + 2.0/3)
+                                     : normh(v.second(2) - 2.0/3) });
+                        prevheight = height;
                     }
-                    prevheight = normh(v.second(2));
+                    else {
+                        if (normh(v.second(2)) > prevheight)
+                            prevheight = normh(v.second(2)+1.0/6);
+                        else
+                            prevheight = normh(v.second(2)-1.0/6);
+                    }
+                    prev_is_node = is_node;
                 });
         }
     }

@@ -945,9 +945,94 @@ For two elements $c_1,c_2\in S$, the following statements are all equivalent:
 
 In this section, we explain the \emph{B\'ezier clipping algorithm} developed in \cite{NishitaTakitaNakamae1992} to find intersection of B\'ezier curves.
 
+\subsection{Generalized binomial coefficients}
+
+We first extend the binomial coefficients.
+
+\begin{definition}
+Let $R$ be an integral domain of charateristic $0$.
+For an element $\alpha\in R$ and an arbitrary integer $n\in\mathbb Z$, we set
+\[
+\binom{\alpha}{n}
+\coloneqq
+\begin{cases}
+\displaystyle\frac{\alpha(\alpha-1)\dots(\alpha-n+1)}{n!} & n> 0\quad, \\
+1 & n = 0\quad, \\
+0 & n < 0 \quad,
+\end{cases}
+\]
+as long as it exists in $R$.
+\end{definition}
+
+\begin{remark}
+The binomial coefficients may not exist.
+For example, we have
+\[
+\binom{\sqrt{-1}}{2}
+= \frac{\sqrt{-1}(\sqrt{-1}-1)}2
+= \frac{-1-\sqrt{-1}}2
+\quad,
+\]
+which does not belong to the ring $\mathbb Z[\sqrt{-1}]$.
+\end{remark}
+
+\begin{lemma}
+\label{lem:binom-recurrence}
+Let $R$ be an integral domain of characterstic $0$.
+Then, for each $\alpha\in R$ and $n\in\mathbb Z$, we have
+\begin{equation}
+\label{eq:binom-recur}
+\binom{\alpha}{n} = \binom{\alpha-1}{n} + \binom{\alpha-1}{n-1}
+\end{equation}
+whenever each term makes sense.
+\end{lemma}
+\begin{proof}
+If $n\le 1$, the equation \eqref{eq:binom-recur} is obvious.
+In case $n\ge 2$, unwinding the definition, we have the following equalities in the field of fractions $F$ of $R$:
+\[
+\begin{split}
+\text{RHS}
+&= \frac{(\alpha-1)\dots(\alpha-k)}{k!} + \frac{(\alpha-1)\dots(\alpha-k+1)}{(k-1)!} \\
+&= \frac{(\alpha-1)\dots(\alpha-k+1)}{(k-1)!}\left(\frac{\alpha-k}{k}+1\right) \\
+&= \frac{(\alpha-1)\dots(\alpha-k+1)}{(k-1)!}\cdot\frac{\alpha}{k} \\
+&= \binom{\alpha}{k}
+\quad.
+\end{split}
+\]
+Since $R$ is an integral domain, the map $R\to F$ is injective; hence the result follows.
+\end{proof}
+
+\begin{lemma}
+\label{lem:binom-altsum}
+Let $R$ be an above, and let $\alpha\in R$ and $n\in\mathbb Z$
+Then, for every non-negative integer $k$, we have
+\begin{equation}
+\label{eq:binom-altsum}
+\binom{\alpha}{n}
+= \sum_{i=0}^k (-1)^{k-i}\binom{k}{i}\binom{\alpha+i}{n+k}
+\quad.
+\end{equation}
+\end{lemma}
+\begin{proof}
+We prove the result by induction on the non-negative integer $k$.
+In the base case where $k=0$, there is nothing to prove.
+On the other hand, if $k\ge 1$, the induction hypothesis implies that
+\[
+\begin{split}
+\binom{\alpha}{n}
+&= \sum_{i=0}^{k-1}(-1)^{k-1-i}\binom{k-1}{i}\binom{\alpha+i}{n+k-1} \\
+&= \sum_{i=0}^{k-1}(-1)^{k-1-i}\binom{k-1}{i}\left(\binom{\alpha+i+1}{n+k}-\binom{\alpha+i}{n+k}\right) \\
+&= \sum_{i=1}^k(-1)^{k-i}\binom{k-1}{i-1}\binom{\alpha+i}{n+k} - \sum_{i=0}^{k-1}(-1)^{k-1-i}\binom{k-1}{i}\binom{\alpha+i}{n+k} \\
+&= \sum_{i=0}^k (-1)^{k-i}\left(\binom{k-1}{i-1}+\binom{k-1}{i}\right)\binom{\alpha+i}{n+k} \\
+&= \sum_{i=0}^k (-1)^{k-i}\binom{k}{i}\binom{\alpha+i}{n+k}
+\quad.
+\end{split}
+\]
+\end{proof}
+
 \subsection{Clipping B\'ezier curves}
 
-We first discuss clipping a piece of a B\'ezier curve.
+We discuss clipping a piece of a B\'ezier curve.
 More precisely, suppose $\gamma:[0,1]\to\mathbb R^n$ is a B\'ezier curve with control points $\beta_0,\dots,\beta_d$; i.e.
 \[
 \gamma(t)
@@ -994,46 +1079,47 @@ Then, the ``left-half'' in \cref{prop:de-casteljau} is obtained by the matrix mu
 \begin{bmatrix}\beta^L_0 & \cdots & \beta^L_d\end{bmatrix}
 = \begin{bmatrix}\beta_0 & \cdots & \beta_d\end{bmatrix}
 \begin{bmatrix}
-1 & \cdots & (1-a)^j & \cdots & (1-a)^d \\
+1 & \cdots & b^j & \cdots & b^d \\
 & \ddots & \vdots && \vdots\\
-&& \binom{j}{i}a^i(1-a)^{j-i} & \cdots & \binom{d}{i}a^i(1-a)^{d-i} \\
+&& \binom{j}{i}a^ib^{j-i} & \cdots & \binom{d}{i}a^ib^{d-i} \\
 &&& \ddots & \vdots \\
 &&&& a^d
 \end{bmatrix}
+\quad,
 \]
-while the ``right-half'' is
+where $a+b=1$, while the ``right-half'' is
 \[
 \begin{bmatrix}\beta^R_0 & \cdots & \beta^R_d\end{bmatrix}
 = \begin{bmatrix}\beta_0 & \cdots & \beta_d\end{bmatrix}
 \begin{bmatrix}
-(1-a)^d &&&& \\
+b^d &&&& \\
 \vdots & \ddots &&& \\
-\binom{d}{i}a^i(1-a)^{d-i} & \cdots & \binom{d-j}{i-j}a^{i-j}(1-a)^{d-i} && \\
+\binom{d}{i}a^ib^{d-i} & \cdots & \binom{d-j}{i-j}a^{i-j}b^{d-i} && \\
 \vdots && \vdots & \ddots & \\
 a^d & \cdots & a^{d-j} & \cdots & 1
 \end{bmatrix}
 \quad.
 \]
-To simplify the notation, we denote them by $S^L(a)$ and $S^R(a)$ respectively.
+To simplify the notation, we denote them by $S^L(a,b)$ and $S^R(a,b)$ respectively.
 Specifically,
 \[
 \begin{split}
-S^L(a)_{ij} &=
+S^L(a,b)_{ij} &=
 \begin{cases}
-\displaystyle\binom{j}{i}a^i(1-a)^{j-i} & j\ge i\\
+\displaystyle\binom{j}{i}a^ib^{j-i} & j\ge i\\
 \ 0 & j < i
 \end{cases}
 \quad,
 \\
-S^R(a)_{ij} &=
+S^R(a,b)_{ij} &=
 \begin{cases}
-\displaystyle\binom{d-j}{i-j}a^{i-j}(1-a)^{d-i} & j \le i\\
+\displaystyle\binom{d-j}{i-j}a^{i-j}b^{d-i} & j \le i\\
 \ 0 & j > i
 \end{cases}
 \quad.
 \end{split}
 \]
-Finally, for a subinterval $I=[a,b]\subset[0,1]$, we can realize the clipped B\'ezier curve $\gamma_I$ by the control points
+Finally, for a subinterval $I=[a_0,a_1]\subset[0,1]$, we can realize the clipped B\'ezier curve $\gamma_I$ by the control points
 \[
 \begin{bmatrix}
 \beta^I_0,\dots,\beta^I_d
@@ -1042,18 +1128,18 @@ Finally, for a subinterval $I=[a,b]\subset[0,1]$, we can realize the clipped B\'
 \begin{bmatrix}
 \beta_0,\dots,\beta_d
 \end{bmatrix}
-S^L(b)S^R(\frac{a}{b})
-\quad.
+S^L(a_1,b_1)S^R\bigl(\frac{a_0}{a_1},b_0-\frac{a_0b_1}{a_1}\bigr)
 \]
+with $a_i+b_i=0$ for $i=0,1$.
 Note that we have
 \[
 \begin{split}
-&\left(S^L(b)S^R(\frac{a}{b})\right)_{ij}
-= \sum_{k=0}^d S^L(b)_{ik}S^R(\frac{a}{b})_{kj} \\
-&= \sum_{k=\max\{i,j\}}^d\binom{k}{i}b^i(1-b)^{k-i}\cdot\binom{d-j}{k-j}\left(\frac{a}{b}\right)^{k-j}\left(1-\frac{a}{b}\right)^{d-k} \\
-&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d \binom{k}{i}\binom{d-j}{k-j}(1-b)^{k-i}a^{k-j}(b-a)^{d-k} \\
-&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d \binom{k}{i}\binom{d-j}{k-j}(1-b)^{k-i}a^{k-j}\sum_{l=0}^{d-k}\binom{d-k}{l}(-a)^{d-k-l}b^l \\
-&= \frac1{b^{d-j-i}}\sum_{k=\max\{i,j\}}^d\sum_{l=0}^{d-k}\binom{k}{i}\binom{d-j}{k-j}\binom{d-k}{l}(-1)^{d-k-l}a^{d-j-l}b^l(1-b)^{k-i}
+&\left(S^L(a_1,b_1)S^R\bigl(\frac{a_0}{a_1},b_0-\frac{a_0b_1}{a_1}\bigr)\right)_{ij}
+= \sum_{k=0}^d S^L(a_1,b_1)_{ik}S^R\bigl(\frac{a_0}{a_1},b_0-\frac{a_0b_1}{a_1}\bigr)_{kj} \\
+&= \sum_{k=\max\{i,j\}}^d\binom{k}{i}a_1^ib_1^{k-i}\cdot\binom{d-j}{k-j}\left(\frac{a_0}{a_1}\right)^{k-j}\left(b_0-\frac{a_0b_1}{a_1}\right)^{d-k} \\
+&= a_1^{i+j-d}\sum_{k=\max\{i,j\}}^d\binom{k}{i}\binom{d-j}{k-j}a_0^{k-j}b_1^{k-i}(a_1b_0-a_0b_1)^{d-k} \\
+&= a_1^{i+j-d}\sum_{k=\max\{i,j\}}^d\binom{k}{i}\binom{d-j}{k-j}a_0^{k-j}b_1^{k-i}\sum_{l=0}^{d-k}\binom{d-k}{l}(a_1b_0)^l(-a_0b_1)^{d-k-l} \\
+&= a_1^{i+j-d}\sum_{k=\max\{i,j\}}^d\sum_{l=0}^{d-k} (-1)^{d-k-l}\binom{k}{i}\binom{d-j}{k-j}\binom{d-k}{l}a_0^{d-j-l}a_1^lb_0^lb_1^{d-i-l}
 \quad.
 \end{split}
 \]
@@ -1061,19 +1147,61 @@ Using the equality $\binom{N}{n}\binom{N-n}{m} = \binom{N}{m}\binom{N-m}{n}$, we
 \[
 \begin{split}
 &\mathrm{RHS} \\
-&= \frac1{b^{d-j-i}}\sum_{l=0}^{d-\max\{i,j\}}\sum_{k=\max\{i,j\}}^{d-l} \binom{k}{i}\binom{d-j}{l}\binom{d-j-l}{k-j}(-1)^{d-k-l}a^{d-j-l}b^l(1-b)^{k-i} \\
-&= \frac1{b^{d-j-i}}\sum_{l=0}^{d-\max\{i,j\}}\binom{d-j}{l}(-a)^{d-j-l}b^l\sum_{k=\max\{i,j\}}^{d-l} \binom{k}{i}\binom{d-j-l}{k-j}(-1)^{d-k-l}(1-b)^{k-i} \\
+&= a_1^{i+j-d}\sum_{l=0}^{d-\max\{i,j\}}\sum_{k=\max\{i,j\}}^{d-l} (-1)^{d-k-l}\binom{k}{i}\binom{d-j}{l}\binom{d-j-l}{k-j}a_0^{d-j-l}a_1^lb_0^lb_1^{d-i-l}
+\quad.
 \end{split}
 \]
-If $i\le j$, the last summation gives
+Therefore, putting
+\begin{equation}
+\label{eq:def-Cijn}
+\begin{split}
+C_{i,j,n}
+&\coloneqq \sum_{k=\max\{i,j\}}^n (-1)^{n-k}\binom{k}{i}\binom{n-j}{k-j} \\
+&=
+\sum_{k'=\max\{i-j,0\}}^{n-j}(-1)^{n-j-k'}\binom{j+k'}{i}\binom{n-j}{k'}
+\quad,
+\end{split}
+\end{equation}
+then we obtain the following equation:
+\begin{equation}
+\label{eq:clip-coeff}
+\left(S^L(a_1,b_1)S^R\bigl(\frac{a_0}{a_1},b_0-\frac{a_0b_1}{a_1}\bigr)\right)_{ij}
+= a_1^{i+j-d}\sum_{l=0}^{d-\max\{i,j\}}\binom{d-j}{l}C_{i,j,d-l}a_0^{d-j-l}a_1^lb_0^lb_1^{d-i-l}
+\end{equation}
+
+\begin{lemma}
+\label{lem:formula-Cijn}
+For every non-negative integers $i,j$ and for every integer $n$, we have
+\begin{equation}
+\label{eq:formula-Cijn}
+C_{i,j,n} = \binom{j}{i+j-n} = \binom{j}{n-i}
+\quad.
+\end{equation}
+\end{lemma}
+\begin{proof}
+Notice that, for each $0\le k'\le \max\{i-j,0\}-1$, we have
+\[
+\binom{j+k'}{i}=0
+\]
+since $j+k'$ is a non-negative integer less than $i$.
+Hence, by \eqref{eq:def-Cijn}, we actually have
+\[
+C_{i,j,n}
+= \sum_{k'=0}^{n-j}(-1)^{n-j-k'}\binom{j+k'}{i}\binom{n-j}{k'}
+\]
+no matter which of $i$ and $j$ is larger.
+The result then follows directly from \cref{lem:binom-altsum}.
+\end{proof}
+
+Substituting \eqref{eq:formula-Cijn} into \eqref{eq:clip-coeff}, we finally get
 \[
 \begin{split}
-&\sum_{k=j}^{d-l} \binom{k}{i}\binom{d-j-l}{k-j}(-1)^{d-k-l}(1-b)^{k-i} \\
-&= \sum_{k'=0}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{k'}(-1)^{d-j-k'-l}(1-b)^{j+k'-i} \\
-&= \sum_{k'=0}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{k'}(-1)^{d-j-k'-l}(1-b)^{j-i}\sum_{m=0}^{k'}\binom{k'}{m}(-b)^m \\
-&= (1-b)^{j-i}\sum_{k'=0}^{d-j-l}\sum_{m=0}^{k'}\binom{j+k'}{i}\binom{d-j-l}{k'}\binom{k'}{m}(-1)^{d-j-k'-l+m}b^m \\
-&= (1-b)^{j-i}\sum_{m=0}^{d-j-l}\sum_{k'=m}^{d-j-l}\binom{j+k'}{i}\binom{d-j-l}{m}\binom{d-j-l-m}{k'-m}(-1)^{d-j-k'-l+m}b^m \\
-&= (1-b)^{j-i}\sum_{m=0}^{d-j-l}\binom{d-j-l}{m}b^m\sum_{k''=0}^{d-j-l-m}\binom{j+m+k''}{i}\binom{d-j-l-m}{k''}(-1)^{d-j-l-k''}\end{split}
+&\left(S^L(a_1,b_1)S^R\bigl(\frac{a_0}{a_1},b_0-\frac{a_0b_1}{a_1}\bigr)\right)_{ij} \\
+&= a_1^{i+j-d}\sum_{l=0}^{d-\max\{i,j\}}\binom{d-j}{l}\binom{j}{d-l-i}a_0^{d-j-l}a_1^lb_0^lb_1^{d-i-l} \\
+&= a_1^{i+j-d}\sum_{l=d-i-j}^{d-\max\{i,j\}}\binom{d-j}{l}\binom{j}{d-l-i}a_0^{d-j-l}a_1^lb_0^lb_1^{d-i-l} \\
+&= a_1^{i+j-d}\sum_{l'=0}^{\min\{i,j\}}\binom{d-j}{d-i-j+l'}\binom{j}{j-l'}a_0^{i-l'}a_1^{d-i-j+l'}b_0^{d-i-j+l'}b_1^{j-l'} \\
+&= \sum_{l'=0}^{\min\{i,j\}}\binom{d-j}{i-l'}\binom{j}{j-l'}a_0^{i-l'}a_1^{l'}b_0^{d-i-j+l'}b_1^{j-l'}
+\end{split}
 \]
 
 \begin{thebibliography}{99}

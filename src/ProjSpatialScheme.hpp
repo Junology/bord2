@@ -41,14 +41,17 @@ private:
 
 public:
     //! Construct from an instance of the base scheme
-    ProjSpatialScheme(Eigen::Vector3d const& focus, BaseScheme *base)
-        : AdapterScheme<BaseScheme,Eigen::Vector3d>{base, std::bind(&ProjSpatialScheme::project, this, std::placeholders::_1)}, m_focus(focus)
+    ProjSpatialScheme(Eigen::Matrix<double,2,3> const& projmat,
+                      Eigen::Vector3d const& focus,
+                      BaseScheme *base)
+        : AdapterScheme<BaseScheme,Eigen::Vector3d>{base, std::bind(&ProjSpatialScheme::project, this, std::placeholders::_1)}, m_mat_proj(projmat),  m_focus(focus)
     {}
 
     //! Direct construction of an instance of the base scheme.
     template <class... Ts>
-    ProjSpatialScheme(Eigen::Vector3d const & focus, Ts&&... args)
-        : ProjSpatialScheme(focus, new BaseScheme(std::forward<Ts>(args)...))
+    ProjSpatialScheme(Eigen::Matrix<double,2,3> const& projmat,
+                      Eigen::Vector3d const & focus, Ts&&... args)
+        : ProjSpatialScheme(projmat, focus, new BaseScheme(std::forward<Ts>(args)...))
     {}
 
     virtual ~ProjSpatialScheme() = default;
@@ -79,6 +82,7 @@ public:
         return depth_vec;
     }
 
+    /*
     //! Set the matrix to an orthoprojection.
     void ortho(double elev, double azim) {
         double t = M_PI*elev/180.0;
@@ -98,6 +102,7 @@ public:
             1.0, depth_factor*cos(t), 0.0,
             0.0, depth_factor*sin(t), 1.0;
     }
+    */
 
     /*!
      * Overriding methods.

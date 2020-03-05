@@ -54,9 +54,14 @@ Eigen::Matrix<double,2,3> getCabinetProjMat(double elev, double azim) noexcept
     double u = M_PI*azim/180.0;
 
     Eigen::Matrix<double,2,3> projmat;
+    /*
     projmat <<
-        1.0, sin(elev)*cos(azim), 0.0,
-        0.0, sin(elev)*sin(azim), 1.0;
+        1.0, sin(t)*cos(u), 0.0,
+        0.0, sin(t)*sin(u), 1.0;
+    */
+    projmat <<
+        sin(t)*cos(u), -1.0, 0.0,
+        sin(t)*sin(u),  0.0, 1.0;
 
     return projmat;
 }
@@ -145,9 +150,6 @@ void Figure3DView::OnKeyDown(wxKeyEvent &event)
         break;
     }
 
-    double t = M_PI*m_elev/180.0;
-    double u = M_PI*m_azim/180.0;
-
     // Inform the change of the angles.
     if (mp_fig)
         mp_fig->updateProjector(getPrMatrix());
@@ -178,7 +180,10 @@ void Figure3DView::render(wxWindowDC &&dc)
     dc.SetBackground(*wxWHITE_BRUSH);
     dc.Clear();
 
-    ProjSpatialScheme<WxGSScheme> wxgsProj{
-        Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]}, std::move(dc)};
+    ProjSpatialScheme<WxGSScheme> wxgsProj = {
+        getPrMatrix(),
+        Eigen::Vector3d{m_focus[0], m_focus[1], m_focus[2]},
+        std::move(dc)
+    };
     drawToScheme(wxgsProj);
 }

@@ -85,10 +85,8 @@ void BordPreviewDialog::OnProjCabinet(wxCommandEvent &event)
 
 void BordPreviewDialog::OnTikz(wxCommandEvent &event)
 {
-    double elev = m_drawPane->getElev();
-    double azim = m_drawPane->getAzim();
-
-    ProjSpatialScheme<TikzScheme> scheme{
+    ProjSpatialScheme<TikzScheme> scheme = {
+        m_drawPane->getPrMatrix(),
         Eigen::Vector3d{
             m_drawPane->getFocus()[0],
             m_drawPane->getFocus()[1],
@@ -96,24 +94,6 @@ void BordPreviewDialog::OnTikz(wxCommandEvent &event)
         }
     };
 
-    /*
-    switch(m_drawPane->getProjMode()) {
-    case Figure3DView::ProjectionMode::Orthographic:
-        scheme.ortho(elev, azim);
-        break;
-
-    case Figure3DView::ProjectionMode::Cabinet:
-        scheme.cabinet(elev, azim);
-        break;
-
-    default:
-        std::cerr << __FILE__":" << __LINE__ << std::endl;
-        std::cerr << "Unknown projection mode." << std::endl;
-        break;
-    }
-
-    m_drawPane->getFigure()->draw(scheme);
-    */
     m_drawPane->drawToScheme(scheme);
 
     ROEntryDialog dlg(

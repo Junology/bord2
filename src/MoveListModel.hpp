@@ -89,6 +89,7 @@ public:
 
     void reset() noexcept {
         m_mvseqs.clear();
+        m_cur = m_mvseqs.begin();
         wxDataViewVirtualListModel::Reset(0);
     }
 

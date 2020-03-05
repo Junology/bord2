@@ -356,7 +356,7 @@ public:
     //! Traverse all the cells in the row-major ordering.
     //! \param f The function-like object with the signature R(size_t,size_t,char) for an arbitrary type R (just ignored).
     template <class F>
-    constexpr void traverse(F&& f) noexcept(noexcept(f(std::declval<size_t>(),std::declval<size_t>(),std::declval<char>())))
+    constexpr void traverse(F&& f) const noexcept(noexcept(f(std::declval<size_t>(),std::declval<size_t>(),std::declval<char>())))
     {
         for(size_t j = 0; j < m_vlength; ++j)
             forElTang(j, std::bind(std::forward<F>(f),

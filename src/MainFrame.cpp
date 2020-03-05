@@ -13,9 +13,15 @@
 #include "MainFrame.hpp"
 #include "PlTangEntryDialog.hpp"
 
+enum bord2ID {
+    bord2ID_LOWEST = wxID_HIGHEST,
+    bord2ID_NEWWITH
+};
+
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
 // Menu associated events
   EVT_MENU(wxID_NEW, MainFrame::OnNew)
+  EVT_MENU(bord2ID_NEWWITH, MainFrame::OnNewWith)
   EVT_MENU(wxID_EXIT, MainFrame::OnExit)
   EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
   EVT_MENU(wxID_REDO, MainFrame::OnRedo)
@@ -41,7 +47,13 @@ enum class Move {
     ExtendR,
     ExtendL,
     ExtendU,
-    ExtendD
+    ExtendD,
+    ShrinkU,
+    ShrinkD,
+    RaiseL7,
+    RaiserJ,
+    LowerL7,
+    LowerrJ
 };
 
 constexpr PlTangMove<2,2> generateMove(Move mvkind)
@@ -135,6 +147,61 @@ constexpr PlTangMove<2,2> generateMove(Move mvkind)
             PlTang<2,2>{"||\nLJ\n"},
             graph );
 
+    case Move::ShrinkU:
+        graph.connect(BeforeUL, AfterDL);
+        graph.connect(BeforeUR, AfterDR);
+        return PlTangMove<2,2>(
+            "ShrinkU",
+            PlTang<2,2>{"r7\n||\n"},
+            PlTang<2,2>{"  \nr7\n"},
+            graph );
+
+    case Move::ShrinkD:
+        graph.connect(BeforeDL, AfterUL);
+        graph.connect(BeforeDR, AfterUR);
+        return PlTangMove<2,2>(
+            "ShrinkD",
+            PlTang<2,2>{"||\nLJ\n"},
+            PlTang<2,2>{"LJ\n  \n"},
+            graph );
+
+    case Move::RaiseL7:
+        graph.connect(BeforeDL, AfterUL);
+        graph.connect(BeforeDR, AfterUR);
+        return PlTangMove<2,2>(
+            "RaiseL7",
+            PlTang<2,2>{"| \nL7\n"},
+            PlTang<2,2>{"L7\n |\n"},
+            graph );
+        break;
+
+    case Move::RaiserJ:
+        graph.connect(BeforeDL, AfterUL);
+        graph.connect(BeforeDR, AfterUR);
+        return PlTangMove<2,2>(
+            "RaiserJ",
+            PlTang<2,2>{" |\nrJ\n"},
+            PlTang<2,2>{"rJ\n| \n"},
+            graph );
+
+    case Move::LowerL7:
+        graph.connect(BeforeUL, AfterDL);
+        graph.connect(BeforeUR, AfterDR);
+        return PlTangMove<2,2>(
+            "LowerL7",
+            PlTang<2,2>{"L7\n |\n"},
+            PlTang<2,2>{"| \nL7\n"},
+            graph );
+
+    case Move::LowerrJ:
+        graph.connect(BeforeUL, AfterDL);
+        graph.connect(BeforeUR, AfterDR);
+        return PlTangMove<2,2>(
+            "LowerL7",
+            PlTang<2,2>{"rJ\n| \n"},
+            PlTang<2,2>{" |\nrJ\n"},
+            graph );
+
     default:
         std::cerr << __FILE__":" << __LINE__ << std::endl;
         std::cerr << "Unknown move" << std::endl;
@@ -150,6 +217,7 @@ MainFrame::MainFrame(const char* title)
     // Setup Manus
     wxMenu *menuFile = new wxMenu;
     menuFile->Append(wxID_NEW);
+    menuFile->Append(bord2ID_NEWWITH, "New With Current Tangle", "", false);
     menuFile->Append(wxID_EXIT);
 
     wxMenu *menuTool = new wxMenu;
@@ -221,7 +289,13 @@ MainFrame::MainFrame(const char* title)
         generateMove(Move::ExtendR),
         generateMove(Move::ExtendL),
         generateMove(Move::ExtendU),
-        generateMove(Move::ExtendD)
+        generateMove(Move::ExtendD),
+        generateMove(Move::ShrinkU),
+        generateMove(Move::ShrinkD),
+        generateMove(Move::RaiseL7),
+        generateMove(Move::RaiserJ),
+        generateMove(Move::LowerL7),
+        generateMove(Move::LowerrJ)
     };
 
     for(auto mv : moves) {
@@ -258,6 +332,32 @@ void MainFrame::OnNew(wxCommandEvent& event)
 
     m_prevDlg->setPlTangMove(m_pltangInit, {});
     m_prevDlg->Refresh();
+
+    // Reset the recording state
+    m_mode = FMODE_NORMAL;
+    m_toolbar->SetToolNormalBitmap(
+        wxID_ADD,
+        wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
+    m_pltangView->lock();
+    m_mvseq_inrec.clear();
+}
+
+void MainFrame::OnNewWith(wxCommandEvent& event)
+{
+    m_pltangInit = m_pltangView->GetPlTang();
+
+    m_pltangView->resetHistory();
+    m_list_model->reset();
+    m_prevDlg->setPlTangMove(m_pltangInit, {});
+    m_prevDlg->Refresh();
+
+    // Reset the recording state
+    m_mode = FMODE_NORMAL;
+    m_toolbar->SetToolNormalBitmap(
+        wxID_ADD,
+        wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
+    m_pltangView->lock();
+    m_mvseq_inrec.clear();
 }
 
 void MainFrame::OnExit(wxCommandEvent& event)

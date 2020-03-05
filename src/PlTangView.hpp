@@ -107,8 +107,10 @@ public:
         return wxControl::Create(parent, winid, pos, size, PTV_WINDOW_STYLE, val, wxControlNameStr);
     }
 
-    void SetPlTang(const TangleType& pltang) noexcept {
+    void SetPlTang(const TangleType& pltang, bool do_reset = true) noexcept {
         m_pltang = pltang;
+        if(do_reset)
+            resetHistory();
     }
 
     TangleType GetPlTang() const noexcept {
@@ -134,6 +136,12 @@ public:
     void registerMove(MoveType const&move) noexcept {
         if (move.isvalid())
             m_moveDict.push_back(move);
+    }
+
+    //! Reset the stack of moves.
+    void resetHistory() noexcept {
+        m_moveHistory.clear();
+        m_cur = m_moveHistory.begin();
     }
 
     //! Apply the move on the top of the m_moveHistory stack.

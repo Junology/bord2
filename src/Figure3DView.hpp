@@ -41,7 +41,7 @@ public:
 private:
     std::unique_ptr<PathFigure3D> mp_fig{};
     ProjectionMode m_prmode = Orthographic;
-    double m_elev{30.0}, m_azim{30.0};
+    double m_elev{15.0}, m_azim{30.0};
     std::array<double,3> m_focus{0.0, 0.0, 0.0};
 
     using BezierSequence = typename BezierScheme::BezierSequence;
@@ -107,21 +107,6 @@ public:
 
     template <class T>
     void drawToScheme(ProjSpatialScheme<T> &scheme) const noexcept {
-        switch(m_prmode) {
-        case ProjectionMode::Orthographic:
-            scheme.ortho(m_elev, m_azim);
-            break;
-
-        case ProjectionMode::Cabinet:
-            scheme.cabinet(m_azim, sin(M_PI*m_elev/180.0));
-            break;
-
-        default:
-            std::cerr << __FILE__":" << __LINE__ << std::endl;
-            std::cerr << "Unknown projection mode: " << m_prmode << std::endl;
-            return;
-        }
-
         for(auto& bezseq : m_bezseq) {
             if(bezseq.empty())
                 continue;

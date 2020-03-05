@@ -43,6 +43,7 @@ public:
 private:
     // Menu associated event handlers
     void OnNew(wxCommandEvent& event);
+    void OnNewWith(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);
     void OnUndo(wxCommandEvent& event);
     void OnRedo(wxCommandEvent& event);

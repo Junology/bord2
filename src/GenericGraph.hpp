@@ -477,7 +477,7 @@ protected:
 template <class K, class T, class U, class Comp = std::equal_to<T>>
 K findAppend(GenericGraph<std::map<K,T>> &graph, U const& x, Comp const& comp = std::equal_to<T>()) noexcept
 {
-    static_assert(std::is_convertible<U&,T&>::value, "The type of the given value cannot be converted into mapped_type.");
+    static_assert(std::is_convertible<U,T>::value, "The type of the given value cannot be converted into mapped_type.");
 
     auto maybeval = graph.findKey(
         [&x, &comp](std::pair<K,T> const& val) {
