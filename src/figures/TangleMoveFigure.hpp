@@ -20,7 +20,7 @@
 #include "PlTangFigure.hpp"
 #include "PathFigure3D.hpp"
 
-//* Debug
+/* Debug
 #include <iostream>
 #include <iomanip>
 // */
@@ -396,15 +396,6 @@ protected:
                 q+=levels[r];
                 ++r;
             }
-            //* Debug
-            if ((hei-q)/levels[r] + r >= levels.size()) {
-                std::cout << __FILE__":" << __LINE__ << std::endl;
-                std::cout << std::setprecision(16)
-                          << hei << std::endl
-                          << (hei-q)/levels[r] + r << std::endl;
-            }
-            // */
-
             return (hei-q)/levels[r] + r;
         };
 
