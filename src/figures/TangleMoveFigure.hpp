@@ -20,7 +20,10 @@
 #include "PlTangFigure.hpp"
 #include "PathFigure3D.hpp"
 
-#include <iostream> // Debug
+//* Debug
+#include <iostream>
+#include <iomanip>
+// */
 
 template <class T>
 class TangleMoveFigure;
@@ -393,6 +396,15 @@ protected:
                 q+=levels[r];
                 ++r;
             }
+            //* Debug
+            if ((hei-q)/levels[r] + r >= levels.size()) {
+                std::cout << __FILE__":" << __LINE__ << std::endl;
+                std::cout << std::setprecision(16)
+                          << hei << std::endl
+                          << (hei-q)/levels[r] + r << std::endl;
+            }
+            // */
+
             return (hei-q)/levels[r] + r;
         };
 
@@ -418,8 +430,8 @@ protected:
                 [&](std::pair<size_t, Eigen::Vector3d> const& v) {
                     bool is_node = tmp_keys.find(v.first) == tmp_keys.end();
                     if(m_paths.back().empty()) {
-                        m_paths.back().push_back({
-                                bord2::BeginPoint, v.second, 0.0});
+                        m_paths.back().push_back(
+                            {bord2::BeginPoint, modifZ(v.second, normh), 0.0});
                         prevheight = normh(v.second(2));
                     }
                     else if(is_node) {
