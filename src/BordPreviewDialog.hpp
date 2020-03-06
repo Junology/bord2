@@ -35,6 +35,10 @@ private:
     Figure3DView *m_drawPane = nullptr;
     TangleMoveFigure<PlTang<>> *mp_tangleFig = nullptr;
 
+    //! Flag indicating the direction of bordisms.
+    //! i.e. the top-to-bottom mode or the other
+    bool m_is_top2bottom = true;
+
 public:
     BordPreviewDialog() : wxFrame() {}
 
@@ -66,13 +70,21 @@ public:
         return mp_tangleFig;
     }
 
-    void setPlTangMove(TangType const& pltang, std::vector<PlTangMove<2,2>::MoveSeq> const& mvseqs) {
-        mp_tangleFig->setTangleMove(
-            pltang,
-            mvseqs,
-            40*Eigen::Matrix3d::Identity() );
+    void setPlTangMove(TangType const& pltang,
+                       std::vector<PlTangMove<2,2>::MoveSeq> const& mvseqs)
+    {
+        mp_tangleFig->setTangleMove(pltang, mvseqs);
         m_drawPane->updateBuffer();
         m_drawPane->Refresh();
+    }
+
+    void setFigureBase() noexcept {
+        constexpr double unit = 40;
+        double z = m_is_top2bottom ? unit : -unit;
+        mp_tangleFig->baseMatrix() <<
+            unit, 0, 0,
+            0, unit, 0,
+            0, 0,    z;
     }
 
     //! Get the associated figure.
@@ -93,6 +105,7 @@ protected:
 
     /** Event handlers **/
     void OnClose(wxCloseEvent &event);
+    void OnVDirection(wxCommandEvent&);
     void OnProjOrtho(wxCommandEvent&);
     void OnProjCabinet(wxCommandEvent&);
     void OnTikz(wxCommandEvent &event);

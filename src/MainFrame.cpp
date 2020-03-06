@@ -312,8 +312,11 @@ MainFrame::MainFrame(const char* title)
 
     // Create an instance of preview dialog
     m_prevDlg = new BordPreviewDialog(this, wxID_ANY, "Preview Cobordism");
-    if(m_pltangInit.isvalid())
+    if(m_pltangInit.isvalid()) {
+        m_prevDlg->setFigureBase();
         m_prevDlg->setPlTangMove(m_pltangInit, {});
+        m_prevDlg->Refresh();
+    }
 }
 
 void MainFrame::OnNew(wxCommandEvent& event)

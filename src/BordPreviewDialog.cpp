@@ -17,6 +17,8 @@
 
 enum {
     BPID_LOWEST = wxID_HIGHEST, // It is safe to use any id above this.
+    BPID_TOP2BOTTOM,
+    BPID_BOTTOM2TOP,
     BPID_ORTHO,
     BPID_CABINET
 };
@@ -25,22 +27,28 @@ wxIMPLEMENT_DYNAMIC_CLASS(BordPreviewDialog, wxFrame);
 
 wxBEGIN_EVENT_TABLE(BordPreviewDialog, wxFrame)
 EVT_CLOSE(BordPreviewDialog::OnClose)
+EVT_MENU(BPID_TOP2BOTTOM, BordPreviewDialog::OnVDirection)
+EVT_MENU(BPID_BOTTOM2TOP, BordPreviewDialog::OnVDirection)
 EVT_MENU(BPID_ORTHO, BordPreviewDialog::OnProjOrtho)
 EVT_MENU(BPID_CABINET, BordPreviewDialog::OnProjCabinet)
 EVT_MENU(wxID_INFO, BordPreviewDialog::OnTikz)
-EVT_MENU(wxID_EXIT, BordPreviewDialog::OnExit)
+EVT_MENU(wxID_CLOSE, BordPreviewDialog::OnExit)
 wxEND_EVENT_TABLE()
 
 void BordPreviewDialog::CreateControls()
 {
     // Menubar
     wxMenu *menuView = new wxMenu;
+    menuView->AppendRadioItem(BPID_TOP2BOTTOM, "Top to Bottom");
+    menuView->AppendRadioItem(BPID_BOTTOM2TOP, "Bottom to Top");
+    menuView->Check(BPID_TOP2BOTTOM, m_is_top2bottom);
+    menuView->AppendSeparator();
     menuView->AppendRadioItem(BPID_ORTHO, "Orthographic Projection");
     menuView->AppendRadioItem(BPID_CABINET, "Cabinet Projection");
     menuView->AppendSeparator();
     menuView->Append(wxID_INFO, "Show Tikz code");
     menuView->AppendSeparator();
-    menuView->Append(wxID_EXIT, "&Close");
+    menuView->Append(wxID_CLOSE);
 
     wxMenuBar *menuBar = new wxMenuBar;
     menuBar->Append(menuView, "&View");
@@ -71,6 +79,27 @@ void BordPreviewDialog::OnClose(wxCloseEvent &event)
         Show(false);
     else
         Destroy();
+}
+
+void BordPreviewDialog::OnVDirection(wxCommandEvent &event)
+{
+    switch(event.GetId()) {
+    case BPID_TOP2BOTTOM:
+        m_is_top2bottom = true;
+        break;
+
+    case BPID_BOTTOM2TOP:
+        m_is_top2bottom = false;
+        break;
+
+    default:
+        std::cerr << __FILE__":" << __LINE__ << std::endl;
+        std::cerr << "Unknown vertical mode: " << event.GetId() << std::endl;
+        return;
+    }
+    setFigureBase();
+    m_drawPane->updateBuffer();
+    m_drawPane->Refresh();
 }
 
 void BordPreviewDialog::OnProjOrtho(wxCommandEvent &event)

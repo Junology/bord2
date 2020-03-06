@@ -42,7 +42,7 @@ private:
     std::vector<PlTangMove<2,2>::MoveSeq> m_mvseqs{};
 
     //! Basis matrix for the 3d-space in rendering.
-    Eigen::Matrix3d m_base;
+    Eigen::Matrix3d m_base = Eigen::Matrix3d::Identity();
 
     //! Vector normal to ridge-lines.
     Eigen::Vector2d m_critV;
@@ -74,13 +74,14 @@ public:
         makePath();
     }
 
+    virtual ~TangleMoveFigure() = default;
+
     void setTangleMove(PlTang<R,C> const& tang,
-                       std::vector<PlTangMove<2,2>::MoveSeq> const& mvseqs,
-                       Eigen::Matrix3d const& base)
+                       std::vector<PlTangMove<2,2>::MoveSeq> const& mvseqs
+        ) noexcept
     {
         m_tangDom = tang;
         m_tangCod = tang;
-        m_base = base;
         m_mvseqs = mvseqs;
 
         for(auto& seq : mvseqs) {
@@ -92,7 +93,13 @@ public:
         makePath();
     }
 
-    virtual ~TangleMoveFigure() = default;
+    Eigen::Matrix3d& baseMatrix() noexcept {
+        return m_base;
+    }
+
+    Eigen::Matrix3d const& baseMatrix() const noexcept {
+        return m_base;
+    }
 
     /**!
      * \section Member functions derived from PathFigure

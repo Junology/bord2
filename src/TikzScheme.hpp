@@ -53,8 +53,9 @@ public:
     }
 
     std::string getTikzCode() const {
+        // Enclose the codes with the tikzpicture environment with reverted y-axis.
         return
-            std::string("\\begin{tikzpicture}\n")
+            std::string("\\begin{tikzpicture}[x=1pt,y=-1pt]\n")
             + m_tikzcode
             + "\\end{tikzpicture}\n";
     }
