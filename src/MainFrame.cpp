@@ -6,12 +6,15 @@
  * \date Descember 3, 2019: created
  */
 
+#include "MainFrame.hpp"
+
+#include <fstream>
 #include <wx/sizer.h>
 #include <wx/artprov.h>
 
 #include "config.hpp"
-#include "MainFrame.hpp"
 #include "PlTangEntryDialog.hpp"
+#include "AppData.hpp"
 
 enum bord2ID {
     bord2ID_LOWEST = wxID_HIGHEST,
@@ -22,6 +25,9 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
 // Menu associated events
   EVT_MENU(wxID_NEW, MainFrame::OnNew)
   EVT_MENU(bord2ID_NEWWITH, MainFrame::OnNewWith)
+  EVT_MENU(wxID_OPEN, MainFrame::OnOpen)
+  EVT_MENU(wxID_SAVE, MainFrame::OnSave)
+  EVT_MENU(wxID_SAVEAS, MainFrame::OnSaveAs)
   EVT_MENU(wxID_EXIT, MainFrame::OnExit)
   EVT_MENU(wxID_UNDO, MainFrame::OnUndo)
   EVT_MENU(wxID_REDO, MainFrame::OnRedo)
@@ -218,6 +224,12 @@ MainFrame::MainFrame(const char* title)
     wxMenu *menuFile = new wxMenu;
     menuFile->Append(wxID_NEW);
     menuFile->Append(bord2ID_NEWWITH, "New With Current Tangle", "", false);
+    menuFile->AppendSeparator();
+    menuFile->Append(wxID_OPEN);
+    menuFile->AppendSeparator();
+    menuFile->Append(wxID_SAVE);
+    menuFile->Append(wxID_SAVEAS);
+    menuFile->AppendSeparator();
     menuFile->Append(wxID_EXIT);
 
     wxMenu *menuTool = new wxMenu;
@@ -246,6 +258,18 @@ MainFrame::MainFrame(const char* title)
         wxID_NEW, "New",
         wxArtProvider::GetBitmap(wxART_NEW, wxART_TOOLBAR),
         "New");
+    m_toolbar->AddTool(
+        wxID_OPEN, _("Open"),
+        wxArtProvider::GetBitmap(wxART_FILE_OPEN, wxART_TOOLBAR),
+        _("Open"));
+    m_toolbar->AddTool(
+        wxID_SAVE, _("Save"),
+        wxArtProvider::GetBitmap(wxART_FILE_SAVE, wxART_TOOLBAR),
+        _("Save"));
+    m_toolbar->AddTool(
+        wxID_SAVEAS, _("Save As"),
+        wxArtProvider::GetBitmap(wxART_FILE_SAVE_AS, wxART_TOOLBAR),
+        _("Save As"));
     m_toolbar->AddSeparator();
     m_toolbar->AddTool(
         wxID_UNDO, "Undo",
@@ -361,6 +385,89 @@ void MainFrame::OnNewWith(wxCommandEvent& event)
         wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
     m_pltangView->lock();
     m_mvseq_inrec.clear();
+}
+
+void MainFrame::OnOpen(wxCommandEvent& event)
+{
+    wxFileDialog openDlg(
+        this, _("Open file"), wxEmptyString, wxEmptyString,
+        _("bord2 file (*.bord2)|*.bord2|Any file (*.*)|*.*"),
+        wxFD_OPEN, wxDefaultPosition);
+
+	// Creates a "open file" dialog with 4 file types
+    if (openDlg.ShowModal() != wxID_OK)
+        return;
+
+    std::string path = openDlg.GetPath().ToStdString();
+    std::ifstream ifs(path);
+
+    auto loaded = readTangleMove(ifs, m_pltangInit);
+
+    // Load succeeded.
+    if (loaded.first) {
+        // Set the loaded tangle to the view.
+        m_pltangView->SetPlTang(m_pltangInit);
+        // Reset the move list.
+        m_list_model->reset();
+
+        // Apply loaded moves.
+        for(auto& mvseq : loaded.second) {
+            typename PlTangMove<2,2>::MoveSeq mvelemseq{};
+            for(auto& mv : mvseq) {
+                auto ptr = m_pltangView->applyMove(mv.name, mv.x, mv.y, false);
+                if (ptr) {
+                    mvelemseq.push_back({*ptr, mv.x, mv.y});
+                    //* Debug
+                    std::cout << __FILE__":" << __LINE__ << std::endl;
+                    std::cout << mvelemseq.back().move.getName() << " "
+                              << mvelemseq.back().x << " "
+                              << mvelemseq.back().y << std::endl;
+                    // */
+                }
+            }
+            m_list_model->push_back(mvelemseq);
+        }
+        m_prevDlg->setPlTangMove(m_pltangInit, m_list_model->getMoveSeqs());
+        m_pltangView->Refresh();
+
+        // Reset the recording state
+        m_mode = FMODE_NORMAL;
+        m_toolbar->SetToolNormalBitmap(
+            wxID_ADD,
+            wxArtProvider::GetBitmap(wxART_PLUS, wxART_TOOLBAR));
+        m_pltangView->lock();
+        m_mvseq_inrec.clear();
+    }
+    // Load failed.
+    else {
+        wxMessageBox(std::string("Failed to load file ") + path);
+    }
+}
+
+void MainFrame::OnSave(wxCommandEvent& event)
+{
+    if(m_filepath.empty()) {
+        OnSaveAs(event);
+        return;
+    }
+
+    std::ofstream ofs{m_filepath};
+    writeTangleMove(ofs, m_pltangInit, m_list_model->getMoveSeqs());
+}
+
+void MainFrame::OnSaveAs(wxCommandEvent& event)
+{
+    wxFileDialog saveDlg(
+        this, _("Open file"), wxEmptyString, wxEmptyString,
+        _("bord2 file (*.bord2)|*.bord2|Any file (*.*)|*.*"),
+        wxFD_SAVE, wxDefaultPosition);
+
+    if (saveDlg.ShowModal() != wxID_OK)
+        return;
+
+    m_filepath = saveDlg.GetPath().ToStdString();
+    std::ofstream ofs{m_filepath};
+    writeTangleMove(ofs, m_pltangInit, m_list_model->getMoveSeqs());
 }
 
 void MainFrame::OnExit(wxCommandEvent& event)

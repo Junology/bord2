@@ -37,6 +37,8 @@ private:
     wxDataViewCtrl *m_pltang_list;
     wxObjectDataPtr<MoveListModel> m_list_model;
 
+    std::string m_filepath{};
+
 public:
     MainFrame(const char* title);
 
@@ -44,6 +46,9 @@ private:
     // Menu associated event handlers
     void OnNew(wxCommandEvent& event);
     void OnNewWith(wxCommandEvent& event);
+    void OnOpen(wxCommandEvent& event);
+    void OnSave(wxCommandEvent& event);
+    void OnSaveAs(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);
     void OnUndo(wxCommandEvent& event);
     void OnRedo(wxCommandEvent& event);

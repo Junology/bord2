@@ -79,7 +79,8 @@ bool PlTangView::redo(bool invoke) noexcept
     return true;
 }
 
-bool PlTangView::applyMove(const std::string &name, size_t x, size_t y, bool invoke) noexcept
+auto PlTangView::applyMove(const std::string &name, size_t x, size_t y, bool invoke) noexcept
+    -> PlTangView::MoveType const*
 {
     size_t i = 0;
 
@@ -94,10 +95,11 @@ bool PlTangView::applyMove(const std::string &name, size_t x, size_t y, bool inv
     return applyMove(i, x, y, invoke);
 }
 
-bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert, bool invoke) noexcept
+auto PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert, bool invoke) noexcept
+    -> PlTangView::MoveType const*
 {
     if (i >= m_moveDict.size())
-        return false;
+        return nullptr;
 
     // Apply the move
     auto newloc
@@ -119,7 +121,7 @@ bool PlTangView::applyMove(size_t i, size_t x, size_t y, bool revert, bool invok
         ProcessEvent(event);
     }
 
-    return true;
+    return &(m_moveDict[i]);
 }
 
 wxSize PlTangView::DoGetBestClientSize() const

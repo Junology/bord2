@@ -17,7 +17,6 @@
 
 #include "PlTang.hpp"
 #include "PlTangMove.hpp"
-//#include "PlTangEvent.hpp"
 
 /*!
  * Styles of the control.
@@ -127,7 +126,7 @@ public:
     //! \param move The moves to be registered.
     //! \warning The duplicate of names will be not checked.
     void registerMove(MoveType &&move) noexcept {
-        m_moveDict.push_back(std::forward<MoveType>(move));
+        m_moveDict.push_back(std::move(move));
     }
 
     //! Register a move so that it is available to apply.
@@ -163,7 +162,8 @@ public:
     //! \param x The x-coordinate of the position where the move is applied.
     //! \param y The y-coordinate of the position where the move is applied.
     //! \param invoke Whether a move event is invoked or not.
-    bool applyMove(std::string const& name, size_t x, size_t y, bool invoke = true) noexcept;
+    auto applyMove(std::string const& name, size_t x, size_t y, bool invoke = true) noexcept
+        -> MoveType const*;
 
 protected:
     //! Apply a move to the planar tangle; a version available only for derived classes.
@@ -173,7 +173,8 @@ protected:
     //! \param y The y-coordinate of the position where the move is applied.
     //! \param revert If true, the move will be reverted in application.
     //! \param invoke Whether a move event is invoked or not.
-    bool applyMove(size_t i, size_t x, size_t y, bool revert = false, bool invoke = true) noexcept;
+    auto applyMove(size_t i, size_t x, size_t y, bool revert = false, bool invoke = true) noexcept
+        -> MoveType const*;
 
     virtual wxSize DoGetBestClientSize() const override;
     virtual wxSize DoGetBestSize() const override;
