@@ -37,7 +37,7 @@ END_EVENT_TABLE()
 Eigen::Matrix<double,2,3> getOrthoProjMat(double elev, double azim) noexcept
 {
     double t = M_PI*elev/180.0;
-    double u = M_PI*azim/180.0;
+    double u = M_PI*(-azim)/180.0;
 
     Eigen::Matrix<double,2,3> projmat;
     projmat <<
@@ -51,7 +51,7 @@ Eigen::Matrix<double,2,3> getOrthoProjMat(double elev, double azim) noexcept
 Eigen::Matrix<double,2,3> getCabinetProjMat(double elev, double azim) noexcept
 {
     double t = M_PI*elev/180.0;
-    double u = M_PI*azim/180.0;
+    double u = M_PI*(-azim)/180.0;
 
     Eigen::Matrix<double,2,3> projmat;
     /*
@@ -60,8 +60,8 @@ Eigen::Matrix<double,2,3> getCabinetProjMat(double elev, double azim) noexcept
         0.0, sin(t)*sin(u), 1.0;
     */
     projmat <<
-        sin(t)*cos(u), -1.0, 0.0,
-        sin(t)*sin(u),  0.0, 1.0;
+        sin(t)*cos(u), 1.0, 0.0,
+        sin(t)*sin(u), 0.0, 1.0;
 
     return projmat;
 }

@@ -40,8 +40,8 @@ public:
 
 private:
     std::unique_ptr<PathFigure3D> mp_fig{};
-    ProjectionMode m_prmode = Orthographic;
-    double m_elev{15.0}, m_azim{30.0};
+    ProjectionMode m_prmode = Cabinet;
+    double m_elev{24.0}, m_azim{30.0};
     std::array<double,3> m_focus{0.0, 0.0, 0.0};
 
     using BezierSequence = typename BezierScheme::BezierSequence;
@@ -84,6 +84,7 @@ public:
     //! This function just calls std::unique_ptr::reset(), so the old pointer, if any, will be deleted through it.
     void setFigure(PathFigure3D *pfig) {
         mp_fig.reset(pfig);
+        mp_fig->updateProjector(getPrMatrix());
         updateBuffer();
         this->Refresh();
     }
