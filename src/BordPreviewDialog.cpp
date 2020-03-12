@@ -11,6 +11,8 @@
 #include <iostream>
 #include <Eigen/Dense>
 
+#include "appicon32x32.xpm"
+
 #include "TikzScheme.hpp"
 #include "ProjSpatialScheme.hpp"
 #include "ROEntryDialog.hpp"
@@ -37,6 +39,9 @@ wxEND_EVENT_TABLE()
 
 void BordPreviewDialog::CreateControls()
 {
+    // Setup Window Icon
+    wxTopLevelWindow::SetIcon(wxIcon(appicon32x32_xpm));
+
     // Menubar
     wxMenu *menuView = new wxMenu;
     menuView->AppendRadioItem(BPID_TOP2BOTTOM, "Top to Bottom");

@@ -13,6 +13,8 @@
 #include <wx/artprov.h>
 
 #include "config.hpp"
+#include "appicon32x32.xpm"
+
 #include "PlTangEntryDialog.hpp"
 #include "AppData.hpp"
 
@@ -220,6 +222,9 @@ MainFrame::MainFrame(const char* title)
   : wxFrame(nullptr, -1, title, wxDefaultPosition, wxSize(800,600)),
     m_pltangInit(pltangInit), m_pltangView(nullptr)
 {
+    // Setup Window Icon
+    wxTopLevelWindow::SetIcon(wxIcon(appicon32x32_xpm));
+
     // Setup Manus
     wxMenu *menuFile = new wxMenu;
     menuFile->Append(wxID_NEW);
