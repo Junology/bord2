@@ -168,8 +168,8 @@ public:
 
         /* Draw the boundary */
         std::for_each(
-            m_tangDom.domain().popBegin(),
-            m_tangDom.domain().popEnd(),
+            m_tangDom.codomain().popBegin(),
+            m_tangDom.codomain().popEnd(),
             [this, &scheme](size_t x) {
                 scheme.moveTo(
                     m_base*Eigen::Vector3d(x+0.5, 0.0, 0.0));
@@ -177,8 +177,8 @@ public:
                     m_base*Eigen::Vector3d(x+0.5, 0.0, m_mvseqs.size()));
             } );
         std::for_each(
-            m_tangDom.codomain().popBegin(),
-            m_tangDom.codomain().popEnd(),
+            m_tangDom.domain().popBegin(),
+            m_tangDom.domain().popEnd(),
             [this, &scheme](size_t x) {
                 scheme.moveTo(
                     m_base*Eigen::Vector3d(
